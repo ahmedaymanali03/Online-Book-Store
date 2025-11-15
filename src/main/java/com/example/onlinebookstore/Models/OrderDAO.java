@@ -20,17 +20,19 @@ public class OrderDAO {
 
     public void createOrder(Order order) {
         String sql = "INSERT INTO orders (customerId, orderDate, status, totalPrice) VALUES (?, ?, ?, ?)";
-        try (PreparedStatement pstmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+        try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setInt(1, order.getCustomerId());
             pstmt.setString(2, order.getOrderDate());
             pstmt.setString(3, order.getStatus());
             pstmt.setDouble(4, order.getTotalPrice());
             pstmt.executeUpdate();
             
-            // Get the generated order ID
-            ResultSet rs = pstmt.getGeneratedKeys();
-            if (rs.next()) {
-                order.setId(rs.getInt(1));
+            // Get the last inserted ID using SQLite's last_insert_rowid()
+            try (Statement stmt = conn.createStatement();
+                 ResultSet rs = stmt.executeQuery("SELECT last_insert_rowid()")) {
+                if (rs.next()) {
+                    order.setId(rs.getInt(1));
+                }
             }
         } catch (SQLException e) {
             e.printStackTrace();

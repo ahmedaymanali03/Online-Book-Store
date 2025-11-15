@@ -20,7 +20,7 @@ public class ReviewDAO {
 
     public void addReview(Review review) {
         String sql = "INSERT INTO reviews (bookId, customerId, rating, comment, reviewDate) VALUES (?, ?, ?, ?, ?)";
-        try (PreparedStatement pstmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+        try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setInt(1, review.getBookId());
             pstmt.setInt(2, review.getCustomerId());
             pstmt.setInt(3, review.getRating());
@@ -28,9 +28,12 @@ public class ReviewDAO {
             pstmt.setString(5, review.getReviewDate());
             pstmt.executeUpdate();
             
-            ResultSet rs = pstmt.getGeneratedKeys();
-            if (rs.next()) {
-                review.setId(rs.getInt(1));
+            // Get the last inserted ID using SQLite's last_insert_rowid()
+            try (Statement stmt = conn.createStatement();
+                 ResultSet rs = stmt.executeQuery("SELECT last_insert_rowid()")) {
+                if (rs.next()) {
+                    review.setId(rs.getInt(1));
+                }
             }
         } catch (SQLException e) {
             e.printStackTrace();

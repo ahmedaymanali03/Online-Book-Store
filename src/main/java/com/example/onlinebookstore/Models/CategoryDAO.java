@@ -20,14 +20,17 @@ public class CategoryDAO {
 
     public void addCategory(Category category) {
         String sql = "INSERT INTO categories (name, description) VALUES (?, ?)";
-        try (PreparedStatement pstmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+        try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, category.getName());
             pstmt.setString(2, category.getDescription());
             pstmt.executeUpdate();
             
-            ResultSet rs = pstmt.getGeneratedKeys();
-            if (rs.next()) {
-                category.setId(rs.getInt(1));
+            // Get the last inserted ID using SQLite's last_insert_rowid()
+            try (Statement stmt = conn.createStatement();
+                 ResultSet rs = stmt.executeQuery("SELECT last_insert_rowid()")) {
+                if (rs.next()) {
+                    category.setId(rs.getInt(1));
+                }
             }
         } catch (SQLException e) {
             e.printStackTrace();
