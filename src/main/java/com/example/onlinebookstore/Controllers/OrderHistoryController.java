@@ -25,6 +25,9 @@ public class OrderHistoryController {
     @FXML
     private Button leaveReviewButton;
     
+    @FXML
+    private Button cancelOrderButton;
+    
     private BookStoreFacade facade;
     private List<Order> orders;
     private OrderItemDAO orderItemDAO = new OrderItemDAO();
@@ -125,10 +128,49 @@ public class OrderHistoryController {
         
         orderDetailsArea.setText(details.toString());
         
+        // Show cancel button only for pending orders
+        cancelOrderButton.setVisible("PENDING".equals(order.getStatus()));
+        
         // Show review button only for confirmed orders
         leaveReviewButton.setVisible("CONFIRMED".equals(order.getStatus()) && currentOrderItems != null && !currentOrderItems.isEmpty());
     }
 
+    @FXML
+    protected void handleCancelOrderAction() {
+        if (selectedOrder == null) {
+            showAlert("No Order Selected", "Please select an order first", Alert.AlertType.WARNING);
+            return;
+        }
+        
+        if (!"PENDING".equals(selectedOrder.getStatus())) {
+            showAlert("Cannot Cancel", "Only pending orders can be cancelled", Alert.AlertType.WARNING);
+            return;
+        }
+        
+        Alert confirmAlert = new Alert(Alert.AlertType.CONFIRMATION);
+        confirmAlert.setTitle("Cancel Order");
+        confirmAlert.setHeaderText("Cancel Order #" + selectedOrder.getId());
+        confirmAlert.setContentText(
+            "Are you sure you want to cancel this order?\n\n" +
+            "Order Total: $" + String.format("%.2f", selectedOrder.getTotalPrice()) + "\n" +
+            "This action cannot be undone."
+        );
+        
+        confirmAlert.showAndWait().ifPresent(response -> {
+            if (response == ButtonType.OK) {
+                facade.cancelOrder(selectedOrder.getId());
+                showAlert("Order Cancelled", 
+                    "Order #" + selectedOrder.getId() + " has been cancelled successfully.\n" +
+                    "You can place a new order anytime.", 
+                    Alert.AlertType.INFORMATION);
+                loadOrders();
+                orderDetailsArea.clear();
+                cancelOrderButton.setVisible(false);
+                leaveReviewButton.setVisible(false);
+            }
+        });
+    }
+    
     @FXML
     protected void handleLeaveReviewAction() {
         if (selectedOrder == null || currentOrderItems == null || currentOrderItems.isEmpty()) {
