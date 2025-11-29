@@ -24,6 +24,11 @@
                 <HBox alignment="CENTER_RIGHT" HBox.hgrow="ALWAYS">
                     <children>
                         <Button fx:id="ordersButton" mnemonicParsing="false" onAction="#handleOrdersButtonAction" text="My Orders" />
+                        <Button fx:id="accountButton" mnemonicParsing="false" onAction="#handleAccountButtonAction" text="My Account">
+                            <HBox.margin>
+                                <Insets left="10.0" />
+                            </HBox.margin>
+                        </Button>
                         <Button fx:id="cartButton" mnemonicParsing="false" onAction="#handleCartButtonAction" text="View Cart (0)">
                             <HBox.margin>
                                 <Insets left="10.0" />

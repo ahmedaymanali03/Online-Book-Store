@@ -23,4 +23,8 @@ public class UserService {
         Customer customer = new Customer(username, password, address, phone);
         userDAO.createUser(customer);
     }
+
+    public boolean updateUser(User user) {
+        return userDAO.updateUser(user);
+    }
 }

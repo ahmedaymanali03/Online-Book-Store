@@ -27,6 +27,9 @@ public class CustomerDashboardController {
     private Button ordersButton;
     
     @FXML
+    private Button accountButton;
+
+    @FXML
     private Button cartButton;
     
     @FXML
@@ -239,6 +242,28 @@ public class CustomerDashboardController {
             stage.setTitle("Order History");
         } catch (Exception e) {
             e.printStackTrace();
+        }
+    }
+
+    @FXML
+    protected void handleAccountButtonAction() {
+        if (!SessionManager.getInstance().isLoggedIn()) {
+            showAlert("Login Required", "Please login to view your account", Alert.AlertType.WARNING);
+            return;
+        }
+
+        try {
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/example/onlinebookstore/AccountView.fxml"));
+            Parent root = loader.load();
+            AccountController controller = loader.getController();
+            controller.setFacade(facade);
+
+            Stage stage = (Stage) accountButton.getScene().getWindow();
+            stage.setScene(new Scene(root, 600, 500));
+            stage.setTitle("My Account");
+        } catch (Exception e) {
+            e.printStackTrace();
+            showAlert("Error", "Unable to open account view", Alert.AlertType.ERROR);
         }
     }
 

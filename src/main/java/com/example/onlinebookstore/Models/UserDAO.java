@@ -60,7 +60,7 @@ public class UserDAO {
         }
     }
     
-    public void updateUser(User user) {
+    public boolean updateUser(User user) {
         String sql = "UPDATE users SET username = ?, password = ?, address = ?, phone = ?, role = ? WHERE id = ?";
         try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, user.getUsername());
@@ -77,9 +77,11 @@ public class UserDAO {
             
             pstmt.setString(5, user.getRole());
             pstmt.setInt(6, user.getId());
-            pstmt.executeUpdate();
+            int rowsUpdated = pstmt.executeUpdate();
+            return rowsUpdated > 0;
         } catch (Exception e) {
             e.printStackTrace();
+            return false;
         }
     }
 

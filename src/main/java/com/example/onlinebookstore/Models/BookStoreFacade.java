@@ -62,6 +62,26 @@ public class BookStoreFacade {
         return currentLoggedInUser instanceof Customer;
     }
 
+    public boolean updateCurrentCustomer(String username, String password, String address, String phone) {
+        if (!(currentLoggedInUser instanceof Customer)) {
+            return false;
+        }
+
+        Customer customer = (Customer) currentLoggedInUser;
+        customer.setUsername(username);
+        customer.setPassword(password);
+        customer.setAddress(address);
+        customer.setPhone(phone);
+
+        boolean updateSucceeded = userService.updateUser(customer);
+        if (!updateSucceeded) {
+            return false;
+        }
+
+        currentLoggedInUser = customer;
+        return true;
+    }
+
     // ==================== Book Browsing & Search (Customer) ====================
     
     public List<Book> getAllBooks() {

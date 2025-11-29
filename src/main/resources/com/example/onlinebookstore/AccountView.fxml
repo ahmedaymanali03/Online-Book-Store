@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.PasswordField?>
+<?import javafx.scene.control.TextField?>
+<?import javafx.scene.layout.BorderPane?>
+<?import javafx.scene.layout.GridPane?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.text.Font?>
+
+<BorderPane prefHeight="500.0" prefWidth="600.0" xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.example.onlinebookstore.Controllers.AccountController">
+    <top>
+        <Label text="Account Details" BorderPane.alignment="CENTER">
+            <font>
+                <Font name="System Bold" size="20.0" />
+            </font>
+            <BorderPane.margin>
+                <Insets bottom="20.0" left="20.0" right="20.0" top="20.0" />
+            </BorderPane.margin>
+        </Label>
+    </top>
+    <center>
+        <GridPane hgap="10.0" vgap="12.0" BorderPane.alignment="CENTER">
+            <columnConstraints />
+            <rowConstraints />
+            <children>
+                <Label text="Username:">
+                    <GridPane.columnIndex>0</GridPane.columnIndex>
+                    <GridPane.rowIndex>0</GridPane.rowIndex>
+                    <font>
+                        <Font name="System Bold" size="12.0" />
+                    </font>
+                </Label>
+                <Label fx:id="usernameDisplay" text="---">
+                    <GridPane.columnIndex>1</GridPane.columnIndex>
+                    <GridPane.rowIndex>0</GridPane.rowIndex>
+                </Label>
+                <TextField fx:id="usernameField" promptText="Username" visible="false" managed="false">
+                    <GridPane.columnIndex>1</GridPane.columnIndex>
+                    <GridPane.rowIndex>0</GridPane.rowIndex>
+                </TextField>
+
+                <Label text="Address:">
+                    <GridPane.columnIndex>0</GridPane.columnIndex>
+                    <GridPane.rowIndex>1</GridPane.rowIndex>
+                    <font>
+                        <Font name="System Bold" size="12.0" />
+                    </font>
+                </Label>
+                <Label fx:id="addressDisplay" text="---">
+                    <GridPane.columnIndex>1</GridPane.columnIndex>
+                    <GridPane.rowIndex>1</GridPane.rowIndex>
+                </Label>
+                <TextField fx:id="addressField" promptText="Street, City" visible="false" managed="false">
+                    <GridPane.columnIndex>1</GridPane.columnIndex>
+                    <GridPane.rowIndex>1</GridPane.rowIndex>
+                </TextField>
+
+                <Label text="Phone:">
+                    <GridPane.columnIndex>0</GridPane.columnIndex>
+                    <GridPane.rowIndex>2</GridPane.rowIndex>
+                    <font>
+                        <Font name="System Bold" size="12.0" />
+                    </font>
+                </Label>
+                <Label fx:id="phoneDisplay" text="---">
+                    <GridPane.columnIndex>1</GridPane.columnIndex>
+                    <GridPane.rowIndex>2</GridPane.rowIndex>
+                </Label>
+                <TextField fx:id="phoneField" promptText="Phone number" visible="false" managed="false">
+                    <GridPane.columnIndex>1</GridPane.columnIndex>
+                    <GridPane.rowIndex>2</GridPane.rowIndex>
+                </TextField>
+
+                <Label fx:id="passwordLabel" text="New Password:" visible="false" managed="false">
+                    <GridPane.columnIndex>0</GridPane.columnIndex>
+                    <GridPane.rowIndex>3</GridPane.rowIndex>
+                    <font>
+                        <Font name="System Bold" size="12.0" />
+                    </font>
+                </Label>
+                <PasswordField fx:id="passwordField" promptText="Leave blank to keep current" visible="false" managed="false">
+                    <GridPane.columnIndex>1</GridPane.columnIndex>
+                    <GridPane.rowIndex>3</GridPane.rowIndex>
+                </PasswordField>
+
+                <Label fx:id="confirmPasswordLabel" text="Confirm Password:" visible="false" managed="false">
+                    <GridPane.columnIndex>0</GridPane.columnIndex>
+                    <GridPane.rowIndex>4</GridPane.rowIndex>
+                    <font>
+                        <Font name="System Bold" size="12.0" />
+                    </font>
+                </Label>
+                <PasswordField fx:id="confirmPasswordField" promptText="Re-enter password" visible="false" managed="false">
+                    <GridPane.columnIndex>1</GridPane.columnIndex>
+                    <GridPane.rowIndex>4</GridPane.rowIndex>
+                </PasswordField>
+
+                <Label fx:id="feedbackLabel" textFill="#d00000">
+                    <GridPane.columnIndex>0</GridPane.columnIndex>
+                    <GridPane.columnSpan>2</GridPane.columnSpan>
+                    <GridPane.rowIndex>5</GridPane.rowIndex>
+                </Label>
+            </children>
+            <padding>
+                <Insets bottom="20.0" left="20.0" right="20.0" top="10.0" />
+            </padding>
+        </GridPane>
+    </center>
+    <bottom>
+        <HBox alignment="CENTER_RIGHT" spacing="10.0" BorderPane.alignment="CENTER">
+            <children>
+                <Button fx:id="backButton" mnemonicParsing="false" onAction="#handleBackAction" text="Back" />
+                <Button fx:id="editButton" mnemonicParsing="false" onAction="#handleEditAction" text="Edit" />
+                <Button fx:id="saveButton" mnemonicParsing="false" onAction="#handleSaveAction" text="Save Changes" visible="false" managed="false" />
+                <Button fx:id="cancelButton" mnemonicParsing="false" onAction="#handleCancelAction" text="Cancel" visible="false" managed="false" />
+            </children>
+            <BorderPane.margin>
+                <Insets bottom="20.0" left="20.0" right="20.0" top="20.0" />
+            </BorderPane.margin>
+        </HBox>
+    </bottom>
+</BorderPane>
