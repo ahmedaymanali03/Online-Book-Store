@@ -25,7 +25,7 @@ public class DatabaseManager {
         }
     }
 
-    // Public method to get the single instance
+    // Public method to get the single instance SINGLETON
     public static synchronized DatabaseManager getInstance() {
         if (instance == null) {
             instance = new DatabaseManager();

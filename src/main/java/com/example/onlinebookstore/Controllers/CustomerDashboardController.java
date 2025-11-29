@@ -11,9 +11,15 @@ import javafx.scene.control.*;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class CustomerDashboardController {
+    
+    // Strategy Pattern: Map of sort strategies
+    private final Map<String, SortStrategy> sortStrategies = new HashMap<>();
+    
     @FXML
     private Label welcomeLabel;
     
@@ -53,6 +59,13 @@ public class CustomerDashboardController {
             facade = new BookStoreFacade();
         }
         
+        // Initialize Strategy Pattern: Register all sort strategies
+        sortStrategies.put("Title (A-Z)", new SortByTitleAZ());
+        sortStrategies.put("Title (Z-A)", new SortByTitleZA());
+        sortStrategies.put("Price (Low to High)", new SortByPrice());
+        sortStrategies.put("Price (High to Low)", new SortByPriceHighToLow());
+        sortStrategies.put("Popularity", new SortByPopularity());
+        
         // Update login/logout button text
         updateLoginLogoutButton();
         
@@ -64,7 +77,15 @@ public class CustomerDashboardController {
         }
         
         // Initialize filters
-        sortFilter.setItems(FXCollections.observableArrayList("Price (Low to High)", "Popularity"));
+        sortFilter.setItems(FXCollections.observableArrayList(
+            "None", 
+            "Title (A-Z)", 
+            "Title (Z-A)", 
+            "Price (Low to High)", 
+            "Price (High to Low)",
+            "Popularity"
+        ));
+        sortFilter.setValue("None");
         
         // Load categories
         List<Category> categories = facade.getAllCategories();
@@ -73,6 +94,11 @@ public class CustomerDashboardController {
             categoryNames.add(cat.getName());
         }
         categoryFilter.setItems(categoryNames);
+        categoryFilter.setValue("All Categories");
+        
+        // Add listeners to automatically apply filters when changed
+        categoryFilter.setOnAction(e -> handleFilterAction());
+        sortFilter.setOnAction(e -> handleFilterAction());
         
         // Load all books initially
         loadBooks(facade.getAllBooks());
@@ -154,7 +180,7 @@ public class CustomerDashboardController {
     protected void handleFilterAction() {
         List<Book> books;
         
-        // Apply category filter
+        // Apply category filter first
         String selectedCategory = categoryFilter.getValue();
         if (selectedCategory != null && !selectedCategory.equals("All Categories")) {
             books = facade.filterBooksByCategory(selectedCategory);
@@ -162,12 +188,13 @@ public class CustomerDashboardController {
             books = facade.getAllBooks();
         }
         
-        // Apply sort
+        // Then apply sort using Strategy Pattern
         String sortBy = sortFilter.getValue();
-        if ("Price (Low to High)".equals(sortBy)) {
-            books = facade.getBooksSortedByPrice();
-        } else if ("Popularity".equals(sortBy)) {
-            books = facade.getBooksSortedByPopularity();
+        if (sortBy != null && !sortBy.equals("None")) {
+            SortStrategy strategy = sortStrategies.get(sortBy);
+            if (strategy != null) {
+                strategy.sort(books);
+            }
         }
         
         loadBooks(books);

@@ -18,11 +18,19 @@ public class OrderService implements OrderSubject {
         this.orderItemDAO = new OrderItemDAO();
     }
 
-    public void placeOrder(Customer customer, Cart cart) {
-        // 1. Calculate total price from cart
-        double totalPrice = 0.0;
+    public boolean placeOrder(Customer customer, Cart cart) {
+        // 1. First validate stock availability
         BookDAO bookDAO = new BookDAO();
+        for (Map.Entry<Integer, Integer> entry : cart.getItems().entrySet()) {
+            Book book = bookDAO.getBookByID(entry.getKey());
+            if (book == null || book.getStock() < entry.getValue()) {
+                System.out.println("Insufficient stock for book: " + (book != null ? book.getTitle() : "Unknown"));
+                return false; // Order failed - insufficient stock
+            }
+        }
         
+        // 2. Calculate total price from cart
+        double totalPrice = 0.0;
         for (Map.Entry<Integer, Integer> entry : cart.getItems().entrySet()) {
             Book book = bookDAO.getBookByID(entry.getKey());
             if (book != null) {
@@ -30,14 +38,14 @@ public class OrderService implements OrderSubject {
             }
         }
         
-        // 2. Create Order object from cart
+        // 3. Create Order object from cart
         String orderDate = java.time.LocalDateTime.now().toString();
         Order order = new Order(customer.getId(), orderDate, "PENDING", totalPrice);
         
-        // 3. Save order to DB via OrderDAO
+        // 4. Save order to DB via OrderDAO
         orderDAO.createOrder(order);
         
-        // 4. Save order items
+        // 5. Save order items
         for (Map.Entry<Integer, Integer> entry : cart.getItems().entrySet()) {
             Book book = bookDAO.getBookByID(entry.getKey());
             if (book != null) {
@@ -46,10 +54,11 @@ public class OrderService implements OrderSubject {
             }
         }
         
-        // 5. Clear the customer's cart
+        // 6. Clear the customer's cart
         cart.clear();
         
         System.out.println("Order placed for " + customer.getUsername() + " with ID: " + order.getId());
+        return true; // Order successful
     }
     
     public void cancelOrder(int orderId) {
@@ -70,13 +79,35 @@ public class OrderService implements OrderSubject {
         return orderDAO.getAllOrders();
     }
 
-    public void confirmOrder(Order order) {
-        // 1. Update order status to 'CONFIRMED' via OrderDAO
+    public boolean confirmOrder(Order order) {
+        // 1. First validate stock availability for all items
+        List<OrderItem> items = orderItemDAO.getOrderItemsByOrder(order.getId());
+        BookDAO bookDAO = new BookDAO();
+        
+        for (OrderItem item : items) {
+            Book book = bookDAO.getBookByID(item.getBookId());
+            if (book == null || book.getStock() < item.getQuantity()) {
+                System.out.println("Cannot confirm order - insufficient stock for book ID: " + item.getBookId());
+                return false; // Cannot confirm - insufficient stock
+            }
+        }
+        
+        // 2. Update order status to 'CONFIRMED' via OrderDAO
         order.setStatus("CONFIRMED");
         orderDAO.updateOrderStatus(order.getId(), "CONFIRMED");
 
-        // 2. Notify all observers (e.g., InventoryService)
-        notifyObservers(order);
+        // 3. Notify all observers (e.g., InventoryService) to update stock
+        // Pass the order items so InventoryService knows quantities
+        notifyObservers(order, items);
+        
+        return true; // Order confirmed successfully
+    }
+    
+    // Overload for backward compatibility
+    public void notifyObservers(Order order, List<OrderItem> items) {
+        for (OrderObserver observer : observers) {
+            observer.onOrderConfirmed(order, items);
+        }
     }
 
     @Override

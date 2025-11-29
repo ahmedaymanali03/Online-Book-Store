@@ -160,7 +160,27 @@ public class AdminDashboardController {
         TextField authorField = new TextField();
         TextField priceField = new TextField();
         TextField stockField = new TextField();
-        TextField categoryField = new TextField();
+        
+        // Use ComboBox for category selection from database
+        ComboBox<Category> categoryComboBox = new ComboBox<>();
+        List<Category> categories = facade.getAllCategories();
+        categoryComboBox.setItems(FXCollections.observableArrayList(categories));
+        // Display category name in ComboBox
+        categoryComboBox.setCellFactory(lv -> new ListCell<Category>() {
+            @Override
+            protected void updateItem(Category item, boolean empty) {
+                super.updateItem(item, empty);
+                setText(empty || item == null ? "" : item.getName());
+            }
+        });
+        categoryComboBox.setButtonCell(new ListCell<Category>() {
+            @Override
+            protected void updateItem(Category item, boolean empty) {
+                super.updateItem(item, empty);
+                setText(empty || item == null ? "" : item.getName());
+            }
+        });
+        
         TextField editionField = new TextField();
 
         grid.add(new Label("Title:"), 0, 0);
@@ -172,7 +192,7 @@ public class AdminDashboardController {
         grid.add(new Label("Stock:"), 0, 3);
         grid.add(stockField, 1, 3);
         grid.add(new Label("Category:"), 0, 4);
-        grid.add(categoryField, 1, 4);
+        grid.add(categoryComboBox, 1, 4);
         grid.add(new Label("Edition:"), 0, 5);
         grid.add(editionField, 1, 5);
 
@@ -181,13 +201,18 @@ public class AdminDashboardController {
         dialog.setResultConverter(dialogButton -> {
             if (dialogButton == addButtonType) {
                 try {
+                    Category selectedCategory = categoryComboBox.getValue();
+                    if (selectedCategory == null) {
+                        showAlert("Invalid Input", "Please select a category", Alert.AlertType.ERROR);
+                        return null;
+                    }
                     Book book = new Book(
                         0,
                         titleField.getText(),
                         authorField.getText(),
                         Double.parseDouble(priceField.getText()),
                         Integer.parseInt(stockField.getText()),
-                        categoryField.getText(),
+                        selectedCategory,
                         0,
                         editionField.getText(),
                         null
@@ -231,7 +256,34 @@ public class AdminDashboardController {
         TextField authorField = new TextField(selectedBook.getAuthor());
         TextField priceField = new TextField(String.valueOf(selectedBook.getPrice()));
         TextField stockField = new TextField(String.valueOf(selectedBook.getStock()));
-        TextField categoryField = new TextField(selectedBook.getCategory());
+        
+        // Use ComboBox for category selection from database
+        ComboBox<Category> categoryComboBox = new ComboBox<>();
+        List<Category> categories = facade.getAllCategories();
+        categoryComboBox.setItems(FXCollections.observableArrayList(categories));
+        // Set the current category as selected
+        for (Category cat : categories) {
+            if (cat.getName().equals(selectedBook.getCategory())) {
+                categoryComboBox.setValue(cat);
+                break;
+            }
+        }
+        // Display category name in ComboBox
+        categoryComboBox.setCellFactory(lv -> new ListCell<Category>() {
+            @Override
+            protected void updateItem(Category item, boolean empty) {
+                super.updateItem(item, empty);
+                setText(empty || item == null ? "" : item.getName());
+            }
+        });
+        categoryComboBox.setButtonCell(new ListCell<Category>() {
+            @Override
+            protected void updateItem(Category item, boolean empty) {
+                super.updateItem(item, empty);
+                setText(empty || item == null ? "" : item.getName());
+            }
+        });
+        
         TextField editionField = new TextField(selectedBook.getEdition());
 
         grid.add(new Label("Title:"), 0, 0);
@@ -243,7 +295,7 @@ public class AdminDashboardController {
         grid.add(new Label("Stock:"), 0, 3);
         grid.add(stockField, 1, 3);
         grid.add(new Label("Category:"), 0, 4);
-        grid.add(categoryField, 1, 4);
+        grid.add(categoryComboBox, 1, 4);
         grid.add(new Label("Edition:"), 0, 5);
         grid.add(editionField, 1, 5);
 
@@ -256,7 +308,7 @@ public class AdminDashboardController {
                     selectedBook.setAuthor(authorField.getText());
                     selectedBook.setPrice(Double.parseDouble(priceField.getText()));
                     selectedBook.setStock(Integer.parseInt(stockField.getText()));
-                    selectedBook.setCategory(categoryField.getText());
+                    selectedBook.setCategory(categoryComboBox.getValue());
                     selectedBook.setEdition(editionField.getText());
                     return selectedBook;
                 } catch (NumberFormatException e) {
