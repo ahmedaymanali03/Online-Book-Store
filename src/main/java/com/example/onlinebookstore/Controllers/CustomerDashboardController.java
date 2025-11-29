@@ -141,6 +141,39 @@ public class CustomerDashboardController {
         
         VBox content = new VBox(10);
         
+        // Add book cover image if available
+        if (book.getCoverImage() != null && !book.getCoverImage().isEmpty()) {
+            try {
+                javafx.scene.image.Image coverImage = new javafx.scene.image.Image(book.getCoverImage());
+                javafx.scene.image.ImageView imageView = new javafx.scene.image.ImageView(coverImage);
+                imageView.setFitWidth(200);
+                imageView.setFitHeight(300);
+                imageView.setPreserveRatio(true);
+                imageView.setSmooth(true);
+                imageView.setStyle("-fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.3), 10, 0, 0, 0);");
+                
+                javafx.scene.layout.HBox imageBox = new javafx.scene.layout.HBox(imageView);
+                imageBox.setAlignment(javafx.geometry.Pos.CENTER);
+                content.getChildren().add(imageBox);
+            } catch (Exception e) {
+                // If image fails to load, show placeholder
+                Label noImage = new Label("📚 [Cover Image Unavailable]");
+                noImage.setStyle("-fx-font-size: 16; -fx-text-fill: #999999;");
+                javafx.scene.layout.HBox imageBox = new javafx.scene.layout.HBox(noImage);
+                imageBox.setAlignment(javafx.geometry.Pos.CENTER);
+                imageBox.setPrefHeight(100);
+                content.getChildren().add(imageBox);
+            }
+        } else {
+            // No cover image available
+            Label noImage = new Label("📚 [No Cover Image]");
+            noImage.setStyle("-fx-font-size: 16; -fx-text-fill: #999999;");
+            javafx.scene.layout.HBox imageBox = new javafx.scene.layout.HBox(noImage);
+            imageBox.setAlignment(javafx.geometry.Pos.CENTER);
+            imageBox.setPrefHeight(100);
+            content.getChildren().add(imageBox);
+        }
+        
         // Book details
         content.getChildren().addAll(
             new Label("Price: $" + book.getPrice()),
