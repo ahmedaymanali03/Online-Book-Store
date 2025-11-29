@@ -61,6 +61,11 @@
                             </VBox.margin>
                         </Label>
                         <TextArea fx:id="orderDetailsArea" editable="false" prefHeight="200.0" prefWidth="200.0" wrapText="true" VBox.vgrow="ALWAYS" />
+                        <Button fx:id="leaveReviewButton" mnemonicParsing="false" onAction="#handleLeaveReviewAction" text="Leave Review for Book" visible="false">
+                            <VBox.margin>
+                                <Insets top="10.0" />
+                            </VBox.margin>
+                        </Button>
                     </children>
                     <padding>
                         <Insets bottom="10.0" left="10.0" right="10.0" top="10.0" />

@@ -10,6 +10,8 @@ import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
+import javafx.scene.control.Separator;
+import javafx.scene.control.ScrollPane;
 
 import java.util.HashMap;
 import java.util.List;
@@ -138,6 +140,8 @@ public class CustomerDashboardController {
         dialog.setHeaderText(String.format("%s by %s", book.getTitle(), book.getAuthor()));
         
         VBox content = new VBox(10);
+        
+        // Book details
         content.getChildren().addAll(
             new Label("Price: $" + book.getPrice()),
             new Label("Category: " + book.getCategory()),
@@ -145,12 +149,72 @@ public class CustomerDashboardController {
             new Label("Edition: " + (book.getEdition() != null ? book.getEdition() : "N/A"))
         );
         
+        // Get and display average rating
+        double avgRating = facade.getBookAverageRating(book.getId());
+        if (avgRating > 0) {
+            Label ratingLabel = new Label(String.format("Average Rating: %.1f ⭐ / 5.0", avgRating));
+            ratingLabel.setStyle("-fx-font-weight: bold; -fx-text-fill: #f39c12;");
+            content.getChildren().add(ratingLabel);
+        }
+        
+        // Get and display reviews
+        List<Review> reviews = facade.getBookReviews(book.getId());
+        if (reviews != null && !reviews.isEmpty()) {
+            Label reviewsHeader = new Label("\nCustomer Reviews (" + reviews.size() + "):");
+            reviewsHeader.setStyle("-fx-font-weight: bold;");
+            content.getChildren().add(reviewsHeader);
+            
+            // Create scrollable area for reviews
+            VBox reviewsBox = new VBox(8);
+            for (Review review : reviews) {
+                VBox reviewItem = new VBox(3);
+                reviewItem.setStyle("-fx-padding: 5; -fx-border-color: #cccccc; -fx-border-width: 1; -fx-background-color: #f9f9f9;");
+                
+                String stars = "⭐".repeat(review.getRating());
+                Label ratingLine = new Label(stars + " (" + review.getRating() + "/5)");
+                ratingLine.setStyle("-fx-font-weight: bold;");
+                
+                Label commentLine = new Label(review.getComment());
+                commentLine.setWrapText(true);
+                commentLine.setMaxWidth(400);
+                
+                String reviewDate = review.getReviewDate();
+                if (reviewDate.length() > 10) {
+                    reviewDate = reviewDate.substring(0, 10);
+                }
+                Label dateLine = new Label("Date: " + reviewDate);
+                dateLine.setStyle("-fx-font-size: 10; -fx-text-fill: #666666;");
+                
+                reviewItem.getChildren().addAll(ratingLine, commentLine, dateLine);
+                reviewsBox.getChildren().add(reviewItem);
+            }
+            
+            ScrollPane reviewsScrollPane = new ScrollPane(reviewsBox);
+            reviewsScrollPane.setFitToWidth(true);
+            reviewsScrollPane.setPrefHeight(200);
+            reviewsScrollPane.setMaxHeight(200);
+            content.getChildren().add(reviewsScrollPane);
+        } else {
+            Label noReviews = new Label("\nNo reviews yet for this book.");
+            noReviews.setStyle("-fx-text-fill: #666666; -fx-font-style: italic;");
+            content.getChildren().add(noReviews);
+        }
+        
+        // Separator before add to cart section
+        Separator separator = new Separator();
+        content.getChildren().add(separator);
+        
         // Quantity spinner
         Label qtyLabel = new Label("Quantity:");
         Spinner<Integer> quantitySpinner = new Spinner<>(1, book.getStock(), 1);
         content.getChildren().addAll(qtyLabel, quantitySpinner);
         
-        dialog.getDialogPane().setContent(content);
+        ScrollPane mainScrollPane = new ScrollPane(content);
+        mainScrollPane.setFitToWidth(true);
+        mainScrollPane.setPrefWidth(450);
+        mainScrollPane.setPrefHeight(500);
+        
+        dialog.getDialogPane().setContent(mainScrollPane);
         dialog.getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
         
         dialog.showAndWait().ifPresent(response -> {

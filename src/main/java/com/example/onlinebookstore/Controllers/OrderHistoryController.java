@@ -22,10 +22,15 @@ public class OrderHistoryController {
     @FXML
     private Button backButton;
     
+    @FXML
+    private Button leaveReviewButton;
+    
     private BookStoreFacade facade;
     private List<Order> orders;
     private OrderItemDAO orderItemDAO = new OrderItemDAO();
     private BookDAO bookDAO = new BookDAO();
+    private Order selectedOrder;
+    private List<OrderItem> currentOrderItems;
 
     public void setFacade(BookStoreFacade facade) {
         this.facade = facade;
@@ -96,6 +101,7 @@ public class OrderHistoryController {
     }
 
     private void displayOrderDetails(Order order) {
+        this.selectedOrder = order;
         StringBuilder details = new StringBuilder();
         details.append("Order ID: ").append(order.getId()).append("\n");
         details.append("Date: ").append(order.getOrderDate()).append("\n");
@@ -105,9 +111,9 @@ public class OrderHistoryController {
         details.append("----------------------------------------\n");
         
         // Get order items
-        List<OrderItem> items = orderItemDAO.getOrderItemsByOrder(order.getId());
+        currentOrderItems = orderItemDAO.getOrderItemsByOrder(order.getId());
         
-        for (OrderItem item : items) {
+        for (OrderItem item : currentOrderItems) {
             Book book = bookDAO.getBookByID(item.getBookId());
             if (book != null) {
                 details.append(String.format("%s\n", book.getTitle()));
@@ -118,8 +124,89 @@ public class OrderHistoryController {
         }
         
         orderDetailsArea.setText(details.toString());
+        
+        // Show review button only for confirmed orders
+        leaveReviewButton.setVisible("CONFIRMED".equals(order.getStatus()) && currentOrderItems != null && !currentOrderItems.isEmpty());
     }
 
+    @FXML
+    protected void handleLeaveReviewAction() {
+        if (selectedOrder == null || currentOrderItems == null || currentOrderItems.isEmpty()) {
+            showAlert("No Order Selected", "Please select an order first", Alert.AlertType.WARNING);
+            return;
+        }
+        
+        // Create dialog to select which book to review
+        ChoiceDialog<String> bookDialog = new ChoiceDialog<>();
+        bookDialog.setTitle("Select Book to Review");
+        bookDialog.setHeaderText("Choose a book from this order to review:");
+        bookDialog.setContentText("Book:");
+        
+        // Populate book choices
+        for (OrderItem item : currentOrderItems) {
+            Book book = bookDAO.getBookByID(item.getBookId());
+            if (book != null) {
+                bookDialog.getItems().add(book.getId() + ": " + book.getTitle());
+            }
+        }
+        
+        if (bookDialog.getItems().isEmpty()) {
+            showAlert("No Books", "No books found in this order", Alert.AlertType.WARNING);
+            return;
+        }
+        
+        bookDialog.setSelectedItem(bookDialog.getItems().get(0));
+        
+        bookDialog.showAndWait().ifPresent(selectedBookStr -> {
+            // Extract book ID from selection
+            int bookId = Integer.parseInt(selectedBookStr.split(":")[0]);
+            Book selectedBook = bookDAO.getBookByID(bookId);
+            
+            if (selectedBook != null) {
+                showReviewDialog(selectedBook);
+            }
+        });
+    }
+    
+    private void showReviewDialog(Book book) {
+        Dialog<ButtonType> dialog = new Dialog<>();
+        dialog.setTitle("Leave Review");
+        dialog.setHeaderText("Review: " + book.getTitle());
+        
+        // Create rating and comment fields
+        Label ratingLabel = new Label("Rating (1-5 stars):");
+        Spinner<Integer> ratingSpinner = new Spinner<>(1, 5, 5);
+        ratingSpinner.setEditable(true);
+        
+        Label commentLabel = new Label("Your Review:");
+        TextArea commentArea = new TextArea();
+        commentArea.setPrefRowCount(5);
+        commentArea.setWrapText(true);
+        commentArea.setPromptText("Share your thoughts about this book...");
+        
+        javafx.scene.layout.VBox content = new javafx.scene.layout.VBox(10);
+        content.getChildren().addAll(ratingLabel, ratingSpinner, commentLabel, commentArea);
+        content.setPadding(new javafx.geometry.Insets(10));
+        
+        dialog.getDialogPane().setContent(content);
+        dialog.getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
+        
+        dialog.showAndWait().ifPresent(response -> {
+            if (response == ButtonType.OK) {
+                int rating = ratingSpinner.getValue();
+                String comment = commentArea.getText().trim();
+                
+                if (comment.isEmpty()) {
+                    showAlert("Invalid Review", "Please write a comment for your review", Alert.AlertType.WARNING);
+                    return;
+                }
+                
+                facade.addReview(book.getId(), rating, comment);
+                showAlert("Success", "Your review has been submitted!", Alert.AlertType.INFORMATION);
+            }
+        });
+    }
+    
     @FXML
     protected void handleBackAction() {
         try {
