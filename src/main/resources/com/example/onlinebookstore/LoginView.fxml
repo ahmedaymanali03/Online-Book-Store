@@ -25,6 +25,7 @@
         <PasswordField fx:id="passwordField" maxWidth="300.0" promptText="Password" />
         <Label fx:id="errorLabel" textFill="RED" />
         <Button fx:id="loginButton" mnemonicParsing="false" onAction="#handleLoginButtonAction" prefWidth="300.0" text="Login" />
+        <Button fx:id="guestButton" mnemonicParsing="false" onAction="#handleGuestLoginAction" prefWidth="300.0" text="Continue as Guest" styleClass="guest-button" />
         <Hyperlink fx:id="registerLink" onAction="#handleRegisterLinkAction" text="Don't have an account? Register" />
     </children>
     <padding>

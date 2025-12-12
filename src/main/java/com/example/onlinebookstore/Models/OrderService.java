@@ -71,6 +71,10 @@ public class OrderService implements OrderSubject {
         }
     }
     
+    public void updateOrderStatus(int orderId, String newStatus) {
+        orderDAO.updateOrderStatus(orderId, newStatus);
+    }
+    
     public List<Order> getCustomerOrders(int customerId) {
         return orderDAO.getOrdersByCustomer(customerId);
     }

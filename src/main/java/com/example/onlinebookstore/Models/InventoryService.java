@@ -21,17 +21,24 @@ public class InventoryService implements OrderObserver {
     
     @Override
     public void onOrderConfirmed(Order order, List<OrderItem> items) {
-        System.out.println("InventoryService: Order " + order.getId() + " confirmed. Updating stock...");
+        System.out.println("InventoryService: Order " + order.getId() + " confirmed. Updating stock and popularity...");
 
-        // Update stock for each item in the order
+        // Update stock and popularity for each item in the order
         for (OrderItem item : items) {
             Book book = bookDAO.getBookByID(item.getBookId());
             if (book != null) {
+                // Update stock
                 int newStock = book.getStock() - item.getQuantity();
                 if (newStock < 0) newStock = 0; // Safety check
                 bookDAO.updateBookStock(item.getBookId(), newStock);
-                System.out.println("Updated stock for book ID " + item.getBookId() + 
-                                   " (qty: " + item.getQuantity() + ") to " + newStock);
+                
+                // Update popularity (increment by quantity sold)
+                int newPopularity = book.getPopularity() + item.getQuantity();
+                bookDAO.updateBookPopularity(item.getBookId(), newPopularity);
+                
+                System.out.println("Updated book ID " + item.getBookId() + 
+                                   ": stock (qty: " + item.getQuantity() + ") to " + newStock +
+                                   ", popularity to " + newPopularity);
             }
         }
     }

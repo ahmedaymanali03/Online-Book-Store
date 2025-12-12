@@ -76,6 +76,17 @@ public class BookDAO {
         }
     }
     
+    public void updateBookPopularity(int bookId, int newPopularity) {
+        String sql = "UPDATE books SET popularity = ? WHERE id = ?";
+        try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setInt(1, newPopularity);
+            pstmt.setInt(2, bookId);
+            pstmt.executeUpdate();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+    
     public void addBook(Book book) {
         String sql = "INSERT INTO books (title, author, price, stock, category, popularity, edition, coverImage) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
         try (PreparedStatement pstmt = conn.prepareStatement(sql)) {

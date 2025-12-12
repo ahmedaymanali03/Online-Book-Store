@@ -131,8 +131,11 @@ public class OrderHistoryController {
         // Show cancel button only for pending orders
         cancelOrderButton.setVisible("PENDING".equals(order.getStatus()));
         
-        // Show review button only for confirmed orders
-        leaveReviewButton.setVisible("CONFIRMED".equals(order.getStatus()) && currentOrderItems != null && !currentOrderItems.isEmpty());
+        // Show review button for shipped and delivered orders
+        boolean canReview = ("SHIPPED".equalsIgnoreCase(order.getStatus()) || 
+                            "DELIVERED".equalsIgnoreCase(order.getStatus())) && 
+                            currentOrderItems != null && !currentOrderItems.isEmpty();
+        leaveReviewButton.setVisible(canReview);
     }
 
     @FXML

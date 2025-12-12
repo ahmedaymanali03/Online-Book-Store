@@ -1,0 +1,552 @@
+<style>
+body {
+    font-family: 'Aptos', 'Calibri', 'Segoe UI', sans-serif;
+}
+</style>
+
+# 6. Database Design
+
+The Online Book Store uses SQLite for data persistence, with a relational database schema managed by the [DatabaseManager](file:///c:/Users/Ahmed/IdeaProjects/Online-Book-Store/src/main/java/com/example/onlinebookstore/Models/DatabaseManager.java#11-111) Singleton pattern.
+
+---
+
+## 6.1 Database Overview
+
+**Database Type**: SQLite  
+**File**: [bookstore.db](file:///c:/Users/Ahmed/IdeaProjects/Online-Book-Store/bookstore.db)  
+**Total Tables**: 6  
+**Management**: [DatabaseManager.java](file:///c:/Users/Ahmed/IdeaProjects/Online-Book-Store/src/main/java/com/example/onlinebookstore/Models/DatabaseManager.java) (Singleton)  
+**Access**: JDBC
+
+### Why SQLite?
+
+- **Embedded**: No separate database server required
+- **Lightweight**:  Small footprint, perfect for desktop applications
+- **Self-contained**: Single file database
+- **ACID Compliant**: Ensures data integrity
+- **Zero Configuration**: No setup or administration needed
+
+---
+
+## 6.2 Database Schema
+
+All tables are automatically created by `DatabaseManager.createTables()` method on first run.
+
+### 6.2.1 Users Table
+
+Stores both Customer and Admin users.
+
+```sql
+CREATE TABLE users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT UNIQUE NOT NULL,
+    password TEXT NOT NULL,
+    address TEXT,
+    phone TEXT,
+    role TEXT NOT NULL  -- 'CUSTOMER' or 'ADMIN'
+);
+```
+
+**Columns**:
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `id` | INTEGER | PRIMARY KEY, AUTOINCREMENT | Unique user identifier |
+| `username` | TEXT | UNIQUE, NOT NULL | Login username |
+| `password` | TEXT | NOT NULL | User password (plaintext - should be hashed) |
+| `address` | TEXT | NULL | Customer address (NULL for admins) |
+| `phone` | TEXT | NULL | Customer phone (NULL for admins) |
+| `role` | TEXT | NOT NULL | "CUSTOMER" or "ADMIN" |
+
+**Purpose**: Stores all user accounts. The `role` field determines user type, used by [UserFactory](file:///c:/Users/Ahmed/IdeaProjects/Online-Book-Store/src/main/java/com/example/onlinebookstore/Models/UserFactory.java#3-14) to create appropriate objects.
+
+---
+
+### 6.2.2 Categories Table
+
+Stores book categories for classification and filtering.
+
+```sql
+CREATE TABLE categories (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT UNIQUE NOT NULL,
+    description TEXT
+);
+```
+
+**Columns**:
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `id` | INTEGER | PRIMARY KEY, AUTOINCREMENT | Unique category identifier |
+| [name](file:///c:/Users/Ahmed/IdeaProjects/Online-Book-Store/src/main/java/com/example/onlinebookstore/Models/User.java#20-21) | TEXT | UNIQUE, NOT NULL | Category name (e.g., "Fiction", "Technology") |
+| `description` | TEXT | NULL | Optional description |
+
+**Purpose**: Organizes books into categories. Admins can create, edit, and delete categories.
+
+**Sample Categories**:
+- Fiction
+- Non-Fiction
+- Science
+- Technology
+- History
+
+---
+
+### 6.2.3 Books Table
+
+Stores all book information including inventory details.
+
+```sql
+CREATE TABLE books (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    title TEXT NOT NULL,
+    author TEXT NOT NULL,
+    price REAL NOT NULL,
+    stock INTEGER NOT NULL,
+    category TEXT,
+    popularity INTEGER DEFAULT 0,
+    edition TEXT,
+    coverImage TEXT
+);
+```
+
+**Columns**:
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `id` | INTEGER | PRIMARY KEY, AUTOINCREMENT | Unique book identifier |
+| `title` | TEXT | NOT NULL | Book title |
+| `author` | TEXT | NOT NULL | Book author |
+| `price` | REAL | NOT NULL | Book price in currency units |
+| `stock` | INTEGER | NOT NULL | Available quantity in inventory |
+| `category` | TEXT | NULL | Category name (should reference categories table) |
+| `popularity` | INTEGER | DEFAULT 0 | Sales count or popularity metric |
+| `edition` | TEXT | NULL | Book edition (e.g., "1st Edition", "4th Edition") |
+| `coverImage` | TEXT | NULL | URL to cover image (e.g., OpenLibrary URL) |
+
+**Purpose**: Central repository for all book data. Updated by Admins and queried by Customers.
+
+**Note**: `category` stores category name as TEXT. Ideally, this should be a foreign key to `categories.id` for better normalization.
+
+**Example Book Data**:
+- "Clean Code" by Robert C. Martin - Technology, $42.99
+- "The Great Gatsby" by F. Scott Fitzgerald - Fiction, $10.99
+- "Design Patterns" by Gang of Four - Technology, $44.99
+
+---
+
+### 6.2.4 Orders Table
+
+Stores customer orders with status tracking.
+
+```sql
+CREATE TABLE orders (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    customerId INTEGER NOT NULL,
+    orderDate TEXT NOT NULL,
+    status TEXT NOT NULL,  -- 'Pending', 'Confirmed', 'Shipped', 'Delivered', 'Canceled'
+    totalPrice REAL NOT NULL,
+    FOREIGN KEY (customerId) REFERENCES users(id)
+);
+```
+
+**Columns**:
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `id` | INTEGER | PRIMARY KEY, AUTOINCREMENT | Unique order identifier |
+| `customerId` | INTEGER | NOT NULL, FOREIGN KEY | References `users.id` |
+| `orderDate` | TEXT | NOT NULL | Order timestamp (ISO format) |
+| `status` | TEXT | NOT NULL | Order status (5 possible values) |
+| `totalPrice` | REAL | NOT NULL | Total order amount |
+
+**Order Status Values** (5 statuses):
+
+| Status | Description | Available Transitions |
+|--------|-------------|----------------------|
+| `Pending` | Order placed, awaiting admin confirmation | → Confirmed, → Canceled |
+| [Confirmed](file:///c:/Users/Ahmed/IdeaProjects/Online-Book-Store/src/main/java/com/example/onlinebookstore/Models/OrderObserver.java#6-7) | Admin confirmed, inventory reduced (Observer) | → Shipped |
+| `Shipped` | Order dispatched to customer | → Delivered |
+| `Delivered` | Order completed successfully | (Terminal state) |
+| `Canceled` | Order canceled by customer or admin | (Terminal state) |
+
+**Status Flow**:
+```
+Pending ──→ Confirmed ──→ Shipped ──→ Delivered
+   │
+   └──→ Canceled
+```
+
+**Purpose**: Tracks all orders through their complete lifecycle. Status changes trigger Observer notifications.
+
+---
+
+### 6.2.5 Order Items Table
+
+Stores individual items within each order.
+
+```sql
+CREATE TABLE order_items (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    orderId INTEGER NOT NULL,
+    bookId INTEGER NOT NULL,
+    quantity INTEGER NOT NULL,
+    price REAL NOT NULL,
+    FOREIGN KEY (orderId) REFERENCES orders(id),
+    FOREIGN KEY (bookId) REFERENCES books(id)
+);
+```
+
+**Columns**:
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `id` | INTEGER | PRIMARY KEY, AUTOINCREMENT | Unique order item identifier |
+| `orderId` | INTEGER | NOT NULL, FOREIGN KEY | References `orders.id` |
+| `bookId` | INTEGER | NOT NULL, FOREIGN KEY | References `books.id` |
+| `quantity` | INTEGER | NOT NULL | Number of books ordered |
+| `price` | REAL | NOT NULL | Price per book at time of order |
+
+**Purpose**: Details of books in each order. Allows orders to contain multiple different books.
+
+**Design Note**: Stores `price` at time of purchase (not a reference to current book price), preserving historical pricing.
+
+---
+
+### 6.2.6 Reviews Table
+
+Stores customer reviews and ratings for books.
+
+```sql
+CREATE TABLE reviews (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    bookId INTEGER NOT NULL,
+    customerId INTEGER NOT NULL,
+    rating INTEGER NOT NULL,  -- 1-5 stars
+    comment TEXT,
+    reviewDate TEXT NOT NULL,
+    FOREIGN KEY (bookId) REFERENCES books(id),
+    FOREIGN KEY (customerId) REFERENCES users(id)
+);
+```
+
+**Columns**:
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `id` | INTEGER | PRIMARY KEY, AUTOINCREMENT | Unique review identifier |
+| `bookId` | INTEGER | NOT NULL, FOREIGN KEY | References `books.id` |
+| `customerId` | INTEGER | NOT NULL, FOREIGN KEY | References `users.id` |
+| `rating` | INTEGER | NOT NULL | Star rating (1-5) |
+| `comment` | TEXT | NULL | Optional review text |
+| `reviewDate` | TEXT | NOT NULL | Review timestamp (ISO format) |
+
+**Purpose**: Allows customers to rate and review books they've purchased.
+
+---
+
+## 6.3 Entity Relationship Diagram
+
+### Relationships
+
+```
+users (1) ──────< (N) orders
+    Users can have multiple orders
+
+users (1) ──────< (N) reviews
+    Users can write multiple reviews
+
+books (1) ──────< (N) order_items
+    Books can appear in multiple orders
+
+books (1) ──────< (N) reviews
+    Books can have multiple reviews
+
+orders (1) ──────< (N) order_items
+    Orders contain multiple items
+
+categories (1) ──────< (N) books
+    Categories contain multiple books (via TEXT reference)
+```
+
+**[PLACEHOLDER: Complete ER Diagram with all tables and relationships]**
+
+### Visual Representation
+
+```
+┌──────────┐
+│  users   │
+│          │
+│ id (PK)  │──┐
+│ role     │  │
+└──────────┘  │
+              │ 1:N
+              ▼
+          ┌──────────┐        1:N       ┌──────────────┐
+          │  orders  │◄─────────────────│ order_items  │
+          │          │                  │              │
+          │ id (PK)  │                  │ id (PK)      │
+          │customerId│                  │ orderId (FK) │
+          │ status   │                  │ bookId (FK)  │
+          │  (5)     │                  │ quantity     │
+          └──────────┘                  │ price        │
+                                        └──────┬───────┘
+                                               │ N:1
+                                               ▼
+┌────────────┐                          ┌──────────┐
+│ categories │                          │  books   │
+│            │                          │          │
+│ id (PK)    │           (weak)         │ id (PK)  │
+│ name       │◄─────────────────────────│ category │
+└────────────┘                          │ stock    │
+                                        │coverImage│
+                                        └────┬─────┘
+                                             │ 1:N
+                                             ▼
+                                        ┌──────────┐
+                                        │ reviews  │
+                                        │          │
+                                        │ id (PK)  │
+                                        │ bookId   │──┐
+                                        │customerId│  │
+                                        │ rating   │  │ N:1
+                                        └──────────┘  │
+                                                      ▼
+                                                ┌──────────┐
+                                                │  users   │
+                                                └──────────┘
+```
+
+---
+
+## 6.4 Database Operations
+
+### 6.4.1 Data Access Objects (DAOs)
+
+Each table has a corresponding DAO class for CRUD operations:
+
+| Table | DAO Class | Key Methods |
+|-------|-----------|-------------|
+| `users` | [UserDAO.java](file:///c:/Users/Ahmed/IdeaProjects/Online-Book-Store/src/main/java/com/example/onlinebookstore/Models/UserDAO.java) | createUser, getUserByUsername, updateUser |
+| `books` | [BookDAO.java](file:///c:/Users/Ahmed/IdeaProjects/Online-Book-Store/src/main/java/com/example/onlinebookstore/Models/BookDAO.java) | addBook, updateBook, deleteBook, getAllBooks, searchByTitle |
+| `categories` | [CategoryDAO.java](file:///c:/Users/Ahmed/IdeaProjects/Online-Book-Store/src/main/java/com/example/onlinebookstore/Models/CategoryDAO.java) | addCategory, updateCategory, deleteCategory, getAllCategories |
+| `orders` | [OrderDAO.java](file:///c:/Users/Ahmed/IdeaProjects/Online-Book-Store/src/main/java/com/example/onlinebookstore/Models/OrderDAO.java) | createOrder, getOrdersByCustomer, getAllOrders, updateOrderStatus |
+| `order_items` | [OrderItemDAO.java](file:///c:/Users/Ahmed/IdeaProjects/Online-Book-Store/src/main/java/com/example/onlinebookstore/Models/OrderItemDAO.java) | addOrderItem, getOrderItemsByOrder |
+| `reviews` | [ReviewDAO.java](file:///c:/Users/Ahmed/IdeaProjects/Online-Book-Store/src/main/java/com/example/onlinebookstore/Models/ReviewDAO.java) | addReview, getReviewsByBook, getAverageRating |
+
+### 6.4.2 Example DAO Operations
+
+**UserDAO - Get User by Username**:
+```java
+public User getUserByUsername(String username) {
+    String sql = "SELECT * FROM users WHERE username = ?";
+    try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+        pstmt.setString(1, username);
+        ResultSet rs = pstmt.executeQuery();
+        
+        if (rs.next()) {
+            String role = rs.getString("role");
+            // Use UserFactory to create appropriate user type
+            User user = UserFactory.createUser(role, 
+                rs.getString("username"),
+                rs.getString("password"),
+                rs.getString("address"),
+                rs.getString("phone")
+            );
+            user.setId(rs.getInt("id"));
+            return user;
+        }
+    } catch (SQLException e) {
+        e.printStackTrace();
+    }
+    return null;
+}
+```
+
+**OrderDAO - Update Order Status**:
+```java
+public boolean updateOrderStatus(int orderId, String newStatus) {
+    // Valid statuses: Pending, Confirmed, Shipped, Delivered, Canceled
+    String sql = "UPDATE orders SET status = ? WHERE id = ?";
+    
+    try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+        pstmt.setString(1, newStatus);
+        pstmt.setInt(2, orderId);
+        
+        int rowsAffected = pstmt.executeUpdate();
+        return rowsAffected > 0;
+    } catch (SQLException e) {
+        e.printStackTrace();
+    }
+    return false;
+}
+```
+
+**BookDAO - Get Low Stock Books**:
+```java
+public List<Book> getLowStockBooks(int threshold) {
+    List<Book> books = new ArrayList<>();
+    String sql = "SELECT * FROM books WHERE stock < ?";
+    
+    try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+        pstmt.setInt(1, threshold);
+        ResultSet rs = pstmt.executeQuery();
+        
+        while (rs.next()) {
+            books.add(extractBookFromResultSet(rs));
+        }
+    } catch (SQLException e) {
+        e.printStackTrace();
+    }
+    return books;
+}
+```
+
+**ReviewDAO - Get Average Rating**:
+```java
+public double getAverageRating(int bookId) {
+    String sql = "SELECT AVG(rating) as avgRating FROM reviews WHERE bookId = ?";
+    
+    try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+        pstmt.setInt(1, bookId);
+        ResultSet rs = pstmt.executeQuery();
+        
+        if (rs.next()) {
+            return rs.getDouble("avgRating");
+        }
+    } catch (SQLException e) {
+        e.printStackTrace();
+    }
+    return 0.0;
+}
+```
+
+---
+
+## 6.5 Database Initialization
+
+The [DatabaseManager](file:///c:/Users/Ahmed/IdeaProjects/Online-Book-Store/src/main/java/com/example/onlinebookstore/Models/DatabaseManager.java#11-111) Singleton creates all tables on first connection:
+
+```java
+private void createTables() {
+    String userTable = "CREATE TABLE IF NOT EXISTS users (...)";
+    String bookTable = "CREATE TABLE IF NOT EXISTS books (...)";
+    String orderTable = "CREATE TABLE IF NOT EXISTS orders (...)";
+    String orderItemTable = "CREATE TABLE IF NOT EXISTS order_items (...)";
+    String categoryTable = "CREATE TABLE IF NOT EXISTS categories (...)";
+    String reviewTable = "CREATE TABLE IF NOT EXISTS reviews (...)";
+    
+    try (var stmt = connection.createStatement()) {
+        stmt.execute(userTable);
+        stmt.execute(categoryTable);
+        stmt.execute(bookTable);
+        stmt.execute(orderTable);
+        stmt.execute(orderItemTable);
+        stmt.execute(reviewTable);
+    } catch (SQLException e) {
+        System.err.println("Error creating tables: " + e.getMessage());
+    }
+}
+```
+
+---
+
+## 6.6 Sample Data Structure
+
+**[PLACEHOLDER: Screenshot of populated database tables]**
+
+### Sample Users
+| id | username | role | address | phone |
+|----|----------|------|---------|-------|
+| 1 | admin | ADMIN | NULL | NULL |
+| 2 | john_doe | CUSTOMER | 123 Main St | 555-0101 |
+| 3 | jane_smith | CUSTOMER | 456 Oak Ave | 555-0102 |
+
+### Sample Books
+| id | title | author | price | stock | category | coverImage |
+|----|-------|--------|-------|-------|----------|------------|
+| 1 | Clean Code | Robert C. Martin | 42.99 | 50 | Technology | https://covers.openlibrary.org/... |
+| 2 | The Great Gatsby | F. Scott Fitzgerald | 10.99 | 50 | Fiction | https://covers.openlibrary.org/... |
+| 3 | Design Patterns | Gang of Four | 44.99 | 30 | Technology | https://covers.openlibrary.org/... |
+
+### Sample Orders with Statuses
+| id | customerId | orderDate | status | totalPrice |
+|----|-----------|-----------|--------|------------|
+| 1 | 2 | 2024-11-10 | Delivered | 25.98 |
+| 2 | 3 | 2024-11-12 | Shipped | 42.99 |
+| 3 | 2 | 2024-11-14 | Shipped | 16.99 |
+| 4 | 3 | 2024-11-15 | Pending | 29.97 |
+
+---
+
+## 6.7 Database Schema Improvements
+
+While the current schema works, here are potential improvements for production:
+
+### 1. Password Security
+```sql
+-- Current (INSECURE):
+password TEXT NOT NULL
+
+-- Better:
+password_hash TEXT NOT NULL,
+salt TEXT NOT NULL
+```
+
+### 2. Category Foreign Key
+```sql
+-- Current:
+category TEXT
+
+-- Better:
+category_id INTEGER,
+FOREIGN KEY (category_id) REFERENCES categories(id)
+```
+
+### 3. Indexes for Performance
+```sql
+CREATE INDEX idx_books_category ON books(category);
+CREATE INDEX idx_orders_customer ON orders(customerId);
+CREATE INDEX idx_orders_status ON orders(status);
+CREATE INDEX idx_reviews_book ON reviews(bookId);
+```
+
+### 4. Timestamps
+```sql
+-- Replace TEXT timestamps with DATETIME columns
+created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+```
+
+### 5. Order Status Constraint
+```sql
+-- Enforce valid status values
+CHECK (status IN ('Pending', 'Confirmed', 'Shipped', 'Delivered', 'Canceled'))
+```
+
+---
+
+## 6.8 Database Design Summary
+
+The Online Book Store database:
+
+- **6 Tables**: users, books, categories, orders, order_items, reviews
+- **5 Order Statuses**: Pending, Confirmed, Shipped, Delivered, Canceled
+- **Relational Design**: Foreign keys ensure referential integrity
+- **Managed by Singleton**: DatabaseManager ensures single connection
+- **DAO Pattern**: Each table has dedicated DAO for CRUD operations
+- **Supports All Features**: User management, inventory, orders with status tracking, reviews, analytics
+
+**Design Principles**:
+- ✓ Normalization (mostly 3NF)
+- ✓ Foreign key constraints
+- ✓ Primary keys on all tables
+- ✓ Historical data preservation (price in order_items)
+- ✓ Support for complete order lifecycle (5 statuses)
+- ✓ Book cover image URLs for rich UI
+
+---
+
+**Previous Section**: [System Architecture](5_System_Architecture.md)  
+**Next Section**: [Conclusion](7_Conclusion.md)

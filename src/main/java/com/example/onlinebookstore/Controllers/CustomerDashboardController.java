@@ -5,9 +5,14 @@ import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
+import javafx.geometry.Pos;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
 import javafx.scene.control.Separator;
@@ -47,7 +52,7 @@ public class CustomerDashboardController {
     private ComboBox<String> sortFilter;
     
     @FXML
-    private ListView<String> bookListView;
+    private ListView<Book> bookListView;
     
     private BookStoreFacade facade;
     private List<Book> currentBooks;
@@ -112,22 +117,74 @@ public class CustomerDashboardController {
 
     private void loadBooks(List<Book> books) {
         this.currentBooks = books;
-        ObservableList<String> bookItems = FXCollections.observableArrayList();
-        
-        for (Book book : books) {
-            String bookInfo = String.format("%s by %s - $%.2f (Stock: %d)", 
-                book.getTitle(), book.getAuthor(), book.getPrice(), book.getStock());
-            bookItems.add(bookInfo);
-        }
-        
+        ObservableList<Book> bookItems = FXCollections.observableArrayList(books);
         bookListView.setItems(bookItems);
         
-        // Add context menu for adding to cart
+        // Set custom cell factory to display book covers
+        bookListView.setCellFactory(param -> new ListCell<Book>() {
+            private ImageView imageView = new ImageView();
+            private Label titleLabel = new Label();
+            private Label authorLabel = new Label();
+            private Label priceLabel = new Label();
+            private Label stockLabel = new Label();
+            private HBox content = new HBox(10);
+            private VBox textBox = new VBox(5);
+            
+            {
+                imageView.setFitWidth(60);
+                imageView.setFitHeight(90);
+                imageView.setPreserveRatio(true);
+                imageView.setSmooth(true);
+                
+                titleLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 14px;");
+                authorLabel.setStyle("-fx-text-fill: #666666;");
+                priceLabel.setStyle("-fx-font-weight: bold; -fx-text-fill: #2ecc71;");
+                stockLabel.setStyle("-fx-font-size: 11px; -fx-text-fill: #7f8c8d;");
+                
+                textBox.getChildren().addAll(titleLabel, authorLabel, priceLabel, stockLabel);
+                textBox.setAlignment(Pos.CENTER_LEFT);
+                HBox.setHgrow(textBox, Priority.ALWAYS);
+                
+                content.getChildren().addAll(imageView, textBox);
+                content.setAlignment(Pos.CENTER_LEFT);
+                content.setStyle("-fx-padding: 5;");
+            }
+            
+            @Override
+            protected void updateItem(Book book, boolean empty) {
+                super.updateItem(book, empty);
+                if (empty || book == null) {
+                    setGraphic(null);
+                } else {
+                    titleLabel.setText(book.getTitle());
+                    authorLabel.setText("by " + book.getAuthor());
+                    priceLabel.setText(String.format("$%.2f", book.getPrice()));
+                    stockLabel.setText("Stock: " + book.getStock());
+                    
+                    // Load book cover image from resources
+                    if (book.getCoverImage() != null && !book.getCoverImage().isEmpty()) {
+                        try {
+                            // Load from classpath resources
+                            Image image = new Image(getClass().getResourceAsStream(book.getCoverImage()));
+                            imageView.setImage(image);
+                        } catch (Exception e) {
+                            imageView.setImage(null);
+                        }
+                    } else {
+                        imageView.setImage(null);
+                    }
+                    
+                    setGraphic(content);
+                }
+            }
+        });
+        
+        // Add double-click listener to show book details
         bookListView.setOnMouseClicked(event -> {
             if (event.getClickCount() == 2) {
-                int selectedIndex = bookListView.getSelectionModel().getSelectedIndex();
-                if (selectedIndex >= 0) {
-                    showBookDetails(currentBooks.get(selectedIndex));
+                Book selectedBook = bookListView.getSelectionModel().getSelectedItem();
+                if (selectedBook != null) {
+                    showBookDetails(selectedBook);
                 }
             }
         });
@@ -144,7 +201,7 @@ public class CustomerDashboardController {
         // Add book cover image if available
         if (book.getCoverImage() != null && !book.getCoverImage().isEmpty()) {
             try {
-                javafx.scene.image.Image coverImage = new javafx.scene.image.Image(book.getCoverImage());
+                javafx.scene.image.Image coverImage = new javafx.scene.image.Image(getClass().getResourceAsStream(book.getCoverImage()));
                 javafx.scene.image.ImageView imageView = new javafx.scene.image.ImageView(coverImage);
                 imageView.setFitWidth(200);
                 imageView.setFitHeight(300);
@@ -248,10 +305,19 @@ public class CustomerDashboardController {
         mainScrollPane.setPrefHeight(500);
         
         dialog.getDialogPane().setContent(mainScrollPane);
-        dialog.getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
+        
+        // Create custom "Add to Cart" button
+        ButtonType addToCartButton = new ButtonType("Add to Cart", ButtonBar.ButtonData.OK_DONE);
+        dialog.getDialogPane().getButtonTypes().addAll(addToCartButton, ButtonType.CANCEL);
         
         dialog.showAndWait().ifPresent(response -> {
-            if (response == ButtonType.OK) {
+            if (response == addToCartButton) {
+                // Check if user is logged in
+                if (!SessionManager.getInstance().isLoggedIn()) {
+                    showAlert("Login Required", "Please login to add items to your cart.", Alert.AlertType.WARNING);
+                    return;
+                }
+                
                 int quantity = quantitySpinner.getValue();
                 facade.addBookToCart(book, quantity);
                 updateCartButton();

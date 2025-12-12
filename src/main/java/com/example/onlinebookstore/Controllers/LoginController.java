@@ -22,6 +22,9 @@ public class LoginController {
     private Button loginButton;
     
     @FXML
+    private Button guestButton;
+    
+    @FXML
     private Hyperlink registerLink;
     
     private BookStoreFacade facade = new BookStoreFacade();
@@ -90,6 +93,27 @@ public class LoginController {
             stage.setTitle("Register");
         } catch (Exception e) {
             e.printStackTrace();
+        }
+    }
+    
+    @FXML
+    protected void handleGuestLoginAction() {
+        try {
+            // Create a guest user (no login required)
+            SessionManager.getInstance().setCurrentUser(null); // Guest has no user
+            
+            // Navigate directly to Customer Dashboard as guest
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/example/onlinebookstore/CustomerDashboardView.fxml"));
+            Parent root = loader.load();
+            CustomerDashboardController controller = loader.getController();
+            controller.setFacade(facade); // Facade without logged-in user
+            
+            Stage stage = (Stage) guestButton.getScene().getWindow();
+            stage.setScene(new Scene(root, 1000, 700));
+            stage.setTitle("Online Book Store - Guest Mode");
+        } catch (Exception e) {
+            e.printStackTrace();
+            errorLabel.setText("Error loading store");
         }
     }
 }

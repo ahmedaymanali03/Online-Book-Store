@@ -160,6 +160,18 @@ public class BookStoreFacade {
         }
     }
     
+    public void cancelOrderAdmin(int orderId) {
+        if (currentLoggedInUser instanceof Admin) {
+            orderService.cancelOrder(orderId);
+        }
+    }
+    
+    public void updateOrderStatus(int orderId, String newStatus) {
+        if (currentLoggedInUser instanceof Admin) {
+            orderService.updateOrderStatus(orderId, newStatus);
+        }
+    }
+    
     public List<Order> getCustomerOrderHistory() {
         if (currentLoggedInUser instanceof Customer) {
             return orderService.getCustomerOrders(currentLoggedInUser.getId());
@@ -255,21 +267,6 @@ public class BookStoreFacade {
     public void confirmOrder(Order order) {
         if (currentLoggedInUser instanceof Admin) {
             orderService.confirmOrder(order);
-        }
-    }
-    
-    public void cancelOrderAdmin(int orderId) {
-        if (currentLoggedInUser instanceof Admin) {
-            orderService.cancelOrder(orderId);
-        }
-    }
-    
-    public void updateOrderStatus(int orderId, String status) {
-        if (currentLoggedInUser instanceof Admin) {
-            orderService.confirmOrder(orderService.getAllOrders().stream()
-                .filter(o -> o.getId() == orderId)
-                .findFirst()
-                .orElse(null));
         }
     }
 

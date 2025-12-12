@@ -11,4 +11,5 @@ module com.example.onlinebookstore {
     opens com.example.onlinebookstore.Models to javafx.fxml;
     exports com.example.onlinebookstore.Controllers;
     opens com.example.onlinebookstore.Controllers to javafx.fxml;
+
 }

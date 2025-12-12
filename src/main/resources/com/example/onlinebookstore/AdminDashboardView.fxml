@@ -80,8 +80,7 @@
                                 </TableView>
                                 <HBox alignment="CENTER_RIGHT" spacing="10.0">
                                     <children>
-                                        <Button fx:id="confirmOrderButton" mnemonicParsing="false" onAction="#handleConfirmOrderAction" text="Confirm Selected Order" />
-                                        <Button fx:id="cancelOrderButton" mnemonicParsing="false" onAction="#handleCancelOrderAction" text="Cancel Selected Order" />
+                                        <Button fx:id="updateStatusButton" mnemonicParsing="false" onAction="#handleUpdateStatusAction" text="Update Order Status" />
                                     </children>
                                 </HBox>
                             </children>
