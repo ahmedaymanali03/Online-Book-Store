@@ -110,6 +110,11 @@ public class CustomerDashboardController {
         categoryFilter.setOnAction(e -> handleFilterAction());
         sortFilter.setOnAction(e -> handleFilterAction());
         
+        // Add dynamic search listener - updates results as user types
+        searchField.textProperty().addListener((observable, oldValue, newValue) -> {
+            handleSearchAction();
+        });
+        
         // Load all books initially
         loadBooks(facade.getAllBooks());
         updateCartButton();
@@ -330,13 +335,9 @@ public class CustomerDashboardController {
     protected void handleSearchAction() {
         String searchText = searchField.getText().trim();
         if (!searchText.isEmpty()) {
-            // Search by title or author
-            List<Book> titleResults = facade.searchBooksByTitle(searchText);
-            List<Book> authorResults = facade.searchBooksByAuthor(searchText);
-            
-            // Combine results
-            titleResults.addAll(authorResults);
-            loadBooks(titleResults);
+            // Use regex-enabled search that matches both title and author
+            List<Book> results = facade.searchBooksWithRegex(searchText);
+            loadBooks(results);
         } else {
             loadBooks(facade.getAllBooks());
         }

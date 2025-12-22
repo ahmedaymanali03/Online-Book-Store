@@ -18,10 +18,14 @@ public class UserService {
         }
         return null; // Login failed
     }
+    
+    public boolean usernameExists(String username) {
+        return userDAO.usernameExists(username);
+    }
 
-    public void registerCustomer(String username, String password, String address, String phone) {
+    public boolean registerCustomer(String username, String password, String address, String phone) {
         Customer customer = new Customer(username, password, address, phone);
-        userDAO.createUser(customer);
+        return userDAO.createUser(customer);
     }
 
     public boolean updateUser(User user) {

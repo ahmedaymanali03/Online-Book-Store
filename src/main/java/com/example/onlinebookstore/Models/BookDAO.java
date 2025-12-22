@@ -213,7 +213,7 @@ public class BookDAO {
     
     public List<Book> getTopSellingBooks(int limit) {
         List<Book> books = new ArrayList<>();
-        String sql = "SELECT * FROM books ORDER BY popularity DESC LIMIT ?";
+        String sql = "SELECT * FROM books WHERE popularity > 0 ORDER BY popularity DESC LIMIT ?";
         try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setInt(1, limit);
             ResultSet rs = pstmt.executeQuery();

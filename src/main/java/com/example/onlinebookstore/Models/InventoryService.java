@@ -42,4 +42,30 @@ public class InventoryService implements OrderObserver {
             }
         }
     }
+    
+    /**
+     * Called when an order is reverted (from CONFIRMED/SHIPPED/DELIVERED to PENDING/CANCELED)
+     * Restores stock and decrements popularity
+     */
+    public void onOrderReverted(Order order, List<OrderItem> items) {
+        System.out.println("InventoryService: Order " + order.getId() + " reverted. Restoring stock...");
+
+        for (OrderItem item : items) {
+            Book book = bookDAO.getBookByID(item.getBookId());
+            if (book != null) {
+                // Restore stock
+                int newStock = book.getStock() + item.getQuantity();
+                bookDAO.updateBookStock(item.getBookId(), newStock);
+                
+                // Decrement popularity
+                int newPopularity = book.getPopularity() - item.getQuantity();
+                if (newPopularity < 0) newPopularity = 0;
+                bookDAO.updateBookPopularity(item.getBookId(), newPopularity);
+                
+                System.out.println("Restored book ID " + item.getBookId() + 
+                                   ": stock to " + newStock +
+                                   ", popularity to " + newPopularity);
+            }
+        }
+    }
 }

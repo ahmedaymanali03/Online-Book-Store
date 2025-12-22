@@ -21,7 +21,7 @@ public class StatisticsService {
      * Get total sales revenue
      */
     public double getTotalRevenue() {
-        String sql = "SELECT SUM(totalPrice) as revenue FROM orders WHERE status != 'CANCELED'";
+        String sql = "SELECT SUM(totalPrice) as revenue FROM orders WHERE UPPER(status) != 'CANCELED'";
         try (var stmt = conn.createStatement(); ResultSet rs = stmt.executeQuery(sql)) {
             if (rs.next()) {
                 return rs.getDouble("revenue");
@@ -36,7 +36,7 @@ public class StatisticsService {
      * Get total number of orders
      */
     public int getTotalOrders() {
-        String sql = "SELECT COUNT(*) as count FROM orders WHERE status != 'CANCELED'";
+        String sql = "SELECT COUNT(*) as count FROM orders WHERE UPPER(status) != 'CANCELED'";
         try (var stmt = conn.createStatement(); ResultSet rs = stmt.executeQuery(sql)) {
             if (rs.next()) {
                 return rs.getInt("count");
@@ -56,7 +56,7 @@ public class StatisticsService {
                      "FROM order_items oi " +
                      "JOIN books b ON oi.bookId = b.id " +
                      "JOIN orders o ON oi.orderId = o.id " +
-                     "WHERE o.status != 'CANCELED' " +
+                     "WHERE UPPER(o.status) != 'CANCELED' AND UPPER(o.status) != 'PENDING' " +
                      "GROUP BY b.category";
         
         try (var stmt = conn.createStatement(); ResultSet rs = stmt.executeQuery(sql)) {
@@ -77,7 +77,7 @@ public class StatisticsService {
                      "FROM order_items oi " +
                      "JOIN books b ON oi.bookId = b.id " +
                      "JOIN orders o ON oi.orderId = o.id " +
-                     "WHERE o.status != 'CANCELED' " +
+                     "WHERE UPPER(o.status) != 'CANCELED' " +
                      "GROUP BY b.category " +
                      "ORDER BY count DESC LIMIT 1";
         
@@ -99,7 +99,7 @@ public class StatisticsService {
         String sql = "SELECT bookId, SUM(quantity) as total " +
                      "FROM order_items oi " +
                      "JOIN orders o ON oi.orderId = o.id " +
-                     "WHERE o.status != 'CANCELED' " +
+                     "WHERE UPPER(o.status) != 'CANCELED' " +
                      "GROUP BY bookId";
         
         try (var stmt = conn.createStatement(); ResultSet rs = stmt.executeQuery(sql)) {
@@ -113,11 +113,11 @@ public class StatisticsService {
     }
 
     /**
-     * Get orders by status
+     * Get orders by status (normalized to uppercase)
      */
     public Map<String, Integer> getOrdersByStatus() {
         Map<String, Integer> statusMap = new HashMap<>();
-        String sql = "SELECT status, COUNT(*) as count FROM orders GROUP BY status";
+        String sql = "SELECT UPPER(status) as status, COUNT(*) as count FROM orders GROUP BY UPPER(status)";
         
         try (var stmt = conn.createStatement(); ResultSet rs = stmt.executeQuery(sql)) {
             while (rs.next()) {
@@ -134,7 +134,7 @@ public class StatisticsService {
      */
     public double getRevenueByDateRange(String startDate, String endDate) {
         String sql = "SELECT SUM(totalPrice) as revenue FROM orders " +
-                     "WHERE status != 'CANCELED' AND orderDate BETWEEN ? AND ?";
+                     "WHERE UPPER(status) != 'CANCELED' AND orderDate BETWEEN ? AND ?";
         
         try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, startDate);
@@ -148,5 +148,132 @@ public class StatisticsService {
             e.printStackTrace();
         }
         return 0.0;
+    }
+
+    /**
+     * Get total number of books sold (sum of all quantities in confirmed orders)
+     */
+    public int getTotalBooksSold() {
+        String sql = "SELECT SUM(oi.quantity) as total " +
+                     "FROM order_items oi " +
+                     "JOIN orders o ON oi.orderId = o.id " +
+                     "WHERE UPPER(o.status) != 'CANCELED' AND UPPER(o.status) != 'PENDING'";
+        
+        try (var stmt = conn.createStatement(); ResultSet rs = stmt.executeQuery(sql)) {
+            if (rs.next()) {
+                return rs.getInt("total");
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return 0;
+    }
+
+    /**
+     * Get total number of books in inventory
+     */
+    public int getTotalBooksInInventory() {
+        String sql = "SELECT COUNT(*) as count FROM books";
+        
+        try (var stmt = conn.createStatement(); ResultSet rs = stmt.executeQuery(sql)) {
+            if (rs.next()) {
+                return rs.getInt("count");
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return 0;
+    }
+
+    /**
+     * Get book count by category
+     */
+    public Map<String, Integer> getBookCountByCategory() {
+        Map<String, Integer> categoryMap = new HashMap<>();
+        String sql = "SELECT category, COUNT(*) as count FROM books GROUP BY category";
+        
+        try (var stmt = conn.createStatement(); ResultSet rs = stmt.executeQuery(sql)) {
+            while (rs.next()) {
+                categoryMap.put(rs.getString("category"), rs.getInt("count"));
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return categoryMap;
+    }
+
+    /**
+     * Get total stock across all books
+     */
+    public int getTotalStock() {
+        String sql = "SELECT SUM(stock) as total FROM books";
+        
+        try (var stmt = conn.createStatement(); ResultSet rs = stmt.executeQuery(sql)) {
+            if (rs.next()) {
+                return rs.getInt("total");
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return 0;
+    }
+
+    /**
+     * Get number of categories
+     */
+    public int getTotalCategories() {
+        String sql = "SELECT COUNT(*) as count FROM categories";
+        
+        try (var stmt = conn.createStatement(); ResultSet rs = stmt.executeQuery(sql)) {
+            if (rs.next()) {
+                return rs.getInt("count");
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return 0;
+    }
+
+    /**
+     * Recalculate popularity for all books based on actual order_items data
+     * Only counts items from confirmed orders (not PENDING or CANCELED)
+     */
+    public void recalculateAllPopularity() {
+        // First, reset all popularity to 0
+        String resetSql = "UPDATE books SET popularity = 0";
+        try (var stmt = conn.createStatement()) {
+            stmt.executeUpdate(resetSql);
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        
+        // Then calculate actual popularity from order_items
+        String calcSql = "SELECT oi.bookId, SUM(oi.quantity) as totalSold " +
+                         "FROM order_items oi " +
+                         "JOIN orders o ON oi.orderId = o.id " +
+                         "WHERE UPPER(o.status) != 'CANCELED' AND UPPER(o.status) != 'PENDING' " +
+                         "GROUP BY oi.bookId";
+        
+        String updateSql = "UPDATE books SET popularity = ? WHERE id = ?";
+        
+        try (var stmt = conn.createStatement(); 
+             ResultSet rs = stmt.executeQuery(calcSql);
+             PreparedStatement updateStmt = conn.prepareStatement(updateSql)) {
+            
+            while (rs.next()) {
+                int bookId = rs.getInt("bookId");
+                int totalSold = rs.getInt("totalSold");
+                
+                updateStmt.setInt(1, totalSold);
+                updateStmt.setInt(2, bookId);
+                updateStmt.executeUpdate();
+                
+                System.out.println("Updated book ID " + bookId + " popularity to " + totalSold);
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        
+        System.out.println("Popularity recalculation complete!");
     }
 }

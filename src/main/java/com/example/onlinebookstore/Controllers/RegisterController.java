@@ -1,6 +1,7 @@
 package com.example.onlinebookstore.Controllers;
 
 import com.example.onlinebookstore.Models.BookStoreFacade;
+import com.example.onlinebookstore.Models.ValidationUtils;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
@@ -42,15 +43,27 @@ public class RegisterController {
 
     @FXML
     protected void handleRegisterButtonAction() {
-        String username = usernameField.getText();
+        String username = usernameField.getText().trim();
         String password = passwordField.getText();
         String confirmPassword = confirmPasswordField.getText();
-        String address = addressField.getText();
-        String phone = phoneField.getText();
+        String address = addressField.getText().trim();
+        String phone = phoneField.getText().trim();
         
         // Validation
         if (username.isEmpty() || password.isEmpty() || address.isEmpty() || phone.isEmpty()) {
             errorLabel.setText("Please fill in all fields");
+            return;
+        }
+        
+        // Validate username format
+        if (!ValidationUtils.isValidUsername(username)) {
+            errorLabel.setText(ValidationUtils.getUsernameErrorMessage());
+            return;
+        }
+        
+        // Validate password
+        if (!ValidationUtils.isValidPassword(password)) {
+            errorLabel.setText(ValidationUtils.getPasswordErrorMessage());
             return;
         }
         
@@ -59,13 +72,19 @@ public class RegisterController {
             return;
         }
         
-        if (password.length() < 6) {
-            errorLabel.setText("Password must be at least 6 characters");
+        // Validate phone number (Egyptian format: 01X XXXX XXXX)
+        if (!ValidationUtils.isValidPhone(phone)) {
+            errorLabel.setText(ValidationUtils.getPhoneErrorMessage());
             return;
         }
         
         try {
-            facade.registerCustomer(username, password, address, phone);
+            boolean success = facade.registerCustomer(username, password, address, phone);
+            
+            if (!success) {
+                errorLabel.setText("Username already exists. Please choose a different one.");
+                return;
+            }
             
             // Show success message
             Alert alert = new Alert(Alert.AlertType.INFORMATION);
@@ -77,7 +96,7 @@ public class RegisterController {
             // Navigate back to login
             handleLoginLinkAction();
         } catch (Exception e) {
-            errorLabel.setText("Registration failed. Username may already exist.");
+            errorLabel.setText("Registration failed. Please try again.");
             e.printStackTrace();
         }
     }

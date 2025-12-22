@@ -130,4 +130,25 @@ public class OrderService implements OrderSubject {
             observer.onOrderConfirmed(order);
         }
     }
+    
+    /**
+     * Revert an order from active status (CONFIRMED/SHIPPED/DELIVERED) to PENDING or CANCELED
+     * This restores the stock that was deducted when the order was confirmed
+     */
+    public void revertOrder(Order order, String newStatus) {
+        List<OrderItem> items = orderItemDAO.getOrderItemsByOrder(order.getId());
+        
+        // Notify observers to restore stock
+        for (OrderObserver observer : observers) {
+            if (observer instanceof InventoryService) {
+                ((InventoryService) observer).onOrderReverted(order, items);
+            }
+        }
+        
+        // Update the order status
+        order.setStatus(newStatus);
+        orderDAO.updateOrderStatus(order.getId(), newStatus);
+        
+        System.out.println("Order " + order.getId() + " reverted to " + newStatus + ". Stock restored.");
+    }
 }

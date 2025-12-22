@@ -3,6 +3,7 @@ package com.example.onlinebookstore.Controllers;
 import com.example.onlinebookstore.Models.BookStoreFacade;
 import com.example.onlinebookstore.Models.Customer;
 import com.example.onlinebookstore.Models.User;
+import com.example.onlinebookstore.Models.ValidationUtils;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
@@ -122,8 +123,25 @@ public class AccountController {
             return;
         }
 
+        // Validate username format
+        if (!ValidationUtils.isValidUsername(username)) {
+            feedbackLabel.setText(ValidationUtils.getUsernameErrorMessage());
+            return;
+        }
+
+        // Validate phone number (Egyptian format)
+        if (!ValidationUtils.isValidPhone(phone)) {
+            feedbackLabel.setText(ValidationUtils.getPhoneErrorMessage());
+            return;
+        }
+
         boolean wantsPasswordChange = !newPassword.isEmpty() || !confirmPassword.isEmpty();
         if (wantsPasswordChange) {
+            // Validate new password
+            if (!ValidationUtils.isValidPassword(newPassword)) {
+                feedbackLabel.setText(ValidationUtils.getPasswordErrorMessage());
+                return;
+            }
             if (!newPassword.equals(confirmPassword)) {
                 feedbackLabel.setText("Passwords do not match.");
                 return;
@@ -134,7 +152,7 @@ public class AccountController {
 
         boolean updateResult = facade.updateCurrentCustomer(username, newPassword, address, phone);
         if (!updateResult) {
-            feedbackLabel.setText("Failed to update account. Please try again.");
+            feedbackLabel.setText("Failed to update. Username may already be taken.");
             return;
         }
 

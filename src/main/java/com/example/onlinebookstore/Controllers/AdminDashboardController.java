@@ -27,6 +27,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+import com.example.onlinebookstore.Models.ValidationUtils;
+
 public class AdminDashboardController {
     // Book Management
     @FXML
@@ -72,7 +74,27 @@ public class AdminDashboardController {
     @FXML
     private ListView<String> topBooksList;
     @FXML
+    private ListView<String> booksPerCategoryList;
+    @FXML
+    private ListView<String> ordersByStatusList;
+    @FXML
     private PieChart salesPieChart;
+    @FXML
+    private PieChart inventoryPieChart;
+    @FXML
+    private PieChart ordersPieChart;
+    @FXML
+    private Button refreshStatsButton;
+    @FXML
+    private Tab statisticsTab;
+    @FXML
+    private Label totalBooksSoldLabel;
+    @FXML
+    private Label totalRevenueLabel;
+    @FXML
+    private Label totalOrdersLabel;
+    @FXML
+    private Label mostPopularCategoryLabel;
     
     @FXML
     private Button logoutButton;
@@ -92,6 +114,15 @@ public class AdminDashboardController {
             loadBooks();
             loadOrders();
             loadStatistics();
+            
+            // Auto-refresh statistics when Statistics tab is selected
+            if (statisticsTab != null) {
+                statisticsTab.setOnSelectionChanged(event -> {
+                    if (statisticsTab.isSelected()) {
+                        loadStatistics();
+                    }
+                });
+            }
         }
     }
 
@@ -108,8 +139,8 @@ public class AdminDashboardController {
         orderIdCol.setCellValueFactory(cellData -> new SimpleIntegerProperty(cellData.getValue().getId()).asObject());
         orderCustomerCol.setCellValueFactory(cellData -> new SimpleIntegerProperty(cellData.getValue().getCustomerId()).asObject());
         orderDateCol.setCellValueFactory(cellData -> new SimpleStringProperty(cellData.getValue().getOrderDate()));
-        orderStatusCol.setCellValueFactory(cellData -> new SimpleStringProperty(cellData.getValue().getStatus()));
-        orderTotalCol.setCellValueFactory(cellData -> new SimpleDoubleProperty(cellData.getValue().getTotalPrice()).asObject());
+        orderStatusCol.setCellValueFactory(cellData -> new SimpleStringProperty(cellData.getValue().getStatus().toUpperCase()));
+        orderTotalCol.setCellValueFactory(cellData -> new SimpleDoubleProperty(Math.round(cellData.getValue().getTotalPrice() * 100.0) / 100.0).asObject());
     }
 
     private void loadBooks() {
@@ -127,9 +158,24 @@ public class AdminDashboardController {
     }
 
     private void loadStatistics() {
+        // Load summary statistics
+        if (totalBooksSoldLabel != null) {
+            totalBooksSoldLabel.setText(String.valueOf(facade.getTotalBooksSold()));
+        }
+        if (totalRevenueLabel != null) {
+            totalRevenueLabel.setText(String.format("$%.2f", facade.getTotalRevenue()));
+        }
+        if (totalOrdersLabel != null) {
+            totalOrdersLabel.setText(String.valueOf(facade.getTotalOrders()));
+        }
+        if (mostPopularCategoryLabel != null) {
+            String popularCat = facade.getMostPopularCategory();
+            mostPopularCategoryLabel.setText(popularCat != null ? popularCat : "N/A");
+        }
+        
         // Load top selling books
         List<Book> topBooks = facade.getTopSellingBooks(10);
-        if (topBooks != null) {
+        if (topBooks != null && topBooksList != null) {
             ObservableList<String> topBooksData = FXCollections.observableArrayList();
             for (Book book : topBooks) {
                 topBooksData.add(String.format("%s - %d sold", book.getTitle(), book.getPopularity()));
@@ -137,15 +183,78 @@ public class AdminDashboardController {
             topBooksList.setItems(topBooksData);
         }
         
+        // Load books per category (list and pie chart)
+        Map<String, Integer> booksPerCategory = facade.getBookCountByCategory();
+        if (booksPerCategory != null) {
+            if (booksPerCategoryList != null) {
+                ObservableList<String> categoryData = FXCollections.observableArrayList();
+                for (Map.Entry<String, Integer> entry : booksPerCategory.entrySet()) {
+                    categoryData.add(String.format("%s: %d books", entry.getKey(), entry.getValue()));
+                }
+                booksPerCategoryList.setItems(categoryData);
+            }
+            if (inventoryPieChart != null) {
+                ObservableList<PieChart.Data> inventoryData = FXCollections.observableArrayList();
+                for (Map.Entry<String, Integer> entry : booksPerCategory.entrySet()) {
+                    inventoryData.add(new PieChart.Data(entry.getKey() + " (" + entry.getValue() + ")", entry.getValue()));
+                }
+                inventoryPieChart.setData(inventoryData);
+            }
+        }
+        
         // Load sales by category chart
         Map<String, Double> salesByCategory = facade.getSalesByCategory();
-        if (salesByCategory != null) {
+        if (salesByCategory != null && salesPieChart != null) {
             ObservableList<PieChart.Data> pieChartData = FXCollections.observableArrayList();
             for (Map.Entry<String, Double> entry : salesByCategory.entrySet()) {
-                pieChartData.add(new PieChart.Data(entry.getKey(), entry.getValue()));
+                pieChartData.add(new PieChart.Data(String.format("%s ($%.0f)", entry.getKey(), entry.getValue()), entry.getValue()));
             }
             salesPieChart.setData(pieChartData);
         }
+        
+        // Load orders by status (list and pie chart)
+        Map<String, Integer> ordersByStatus = facade.getOrdersByStatus();
+        if (ordersByStatus != null) {
+            if (ordersByStatusList != null) {
+                ObservableList<String> statusData = FXCollections.observableArrayList();
+                for (Map.Entry<String, Integer> entry : ordersByStatus.entrySet()) {
+                    statusData.add(String.format("%s: %d orders", entry.getKey(), entry.getValue()));
+                }
+                ordersByStatusList.setItems(statusData);
+            }
+            if (ordersPieChart != null) {
+                ObservableList<PieChart.Data> ordersData = FXCollections.observableArrayList();
+                for (Map.Entry<String, Integer> entry : ordersByStatus.entrySet()) {
+                    ordersData.add(new PieChart.Data(entry.getKey() + " (" + entry.getValue() + ")", entry.getValue()));
+                }
+                ordersPieChart.setData(ordersData);
+            }
+        }
+    }
+
+    @FXML
+    protected void handleRefreshStatsAction() {
+        loadStatistics();
+        loadBooks();
+        loadOrders();
+    }
+
+    @FXML
+    protected void handleRecalcPopularityAction() {
+        // Confirm before recalculating
+        Alert confirm = new Alert(Alert.AlertType.CONFIRMATION);
+        confirm.setTitle("Sync Popularity");
+        confirm.setHeaderText("Recalculate Book Popularity?");
+        confirm.setContentText("This will sync all book popularity values with actual sales data from confirmed orders. Continue?");
+        
+        confirm.showAndWait().ifPresent(response -> {
+            if (response == ButtonType.OK) {
+                facade.recalculateAllPopularity();
+                loadStatistics();
+                loadBooks();
+                showAlert("Success", "Book popularity has been synced with actual sales data!", Alert.AlertType.INFORMATION);
+            }
+        });
     }
 
     @FXML
@@ -241,42 +350,56 @@ public class AdminDashboardController {
 
         dialog.setResultConverter(dialogButton -> {
             if (dialogButton == addButtonType) {
-                try {
-                    Category selectedCategory = categoryComboBox.getValue();
-                    if (selectedCategory == null) {
-                        showAlert("Invalid Input", "Please select a category", Alert.AlertType.ERROR);
-                        return null;
-                    }
-                    
-                    // Determine cover image path
-                    String coverImagePath = null;
-                    if (selectedImagePath[0] != null) {
-                        // Use uploaded file
-                        coverImagePath = selectedImagePath[0];
-                    } else if (!imageUrlField.getText().trim().isEmpty()) {
-                        // Download from URL
-                        try {
-                            coverImagePath = downloadImageFromUrl(imageUrlField.getText().trim());
-                        } catch (IOException ex) {
-                            showAlert("Download Failed", "Could not download image from URL: " + ex.getMessage(), Alert.AlertType.WARNING);
-                        }
-                    }
-                    
-                    Book book = new Book(
-                        0,
-                        titleField.getText(),
-                        authorField.getText(),
-                        Double.parseDouble(priceField.getText()),
-                        Integer.parseInt(stockField.getText()),
-                        selectedCategory,
-                        0,
-                        editionField.getText(),
-                        coverImagePath
-                    );
-                    return book;
-                } catch (NumberFormatException e) {
-                    showAlert("Invalid Input", "Please enter valid numbers for price and stock", Alert.AlertType.ERROR);
+                Category selectedCategory = categoryComboBox.getValue();
+                if (selectedCategory == null) {
+                    showAlert("Invalid Input", "Please select a category", Alert.AlertType.ERROR);
+                    return null;
                 }
+                
+                // Validate required text fields
+                if (titleField.getText().trim().isEmpty() || authorField.getText().trim().isEmpty()) {
+                    showAlert("Invalid Input", "Title and Author are required", Alert.AlertType.ERROR);
+                    return null;
+                }
+                
+                // Validate price
+                if (!ValidationUtils.isValidPrice(priceField.getText())) {
+                    showAlert("Invalid Input", ValidationUtils.getPriceErrorMessage(), Alert.AlertType.ERROR);
+                    return null;
+                }
+                
+                // Validate stock
+                if (!ValidationUtils.isValidStock(stockField.getText())) {
+                    showAlert("Invalid Input", ValidationUtils.getStockErrorMessage(), Alert.AlertType.ERROR);
+                    return null;
+                }
+                
+                // Determine cover image path
+                String coverImagePath = null;
+                if (selectedImagePath[0] != null) {
+                    // Use uploaded file
+                    coverImagePath = selectedImagePath[0];
+                } else if (!imageUrlField.getText().trim().isEmpty()) {
+                    // Download from URL
+                    try {
+                        coverImagePath = downloadImageFromUrl(imageUrlField.getText().trim());
+                    } catch (IOException ex) {
+                        showAlert("Download Failed", "Could not download image from URL: " + ex.getMessage(), Alert.AlertType.WARNING);
+                    }
+                }
+                
+                Book book = new Book(
+                    0,
+                    titleField.getText().trim(),
+                    authorField.getText().trim(),
+                    Double.parseDouble(priceField.getText().trim()),
+                    Integer.parseInt(stockField.getText().trim()),
+                    selectedCategory,
+                    0,
+                    editionField.getText().trim(),
+                    coverImagePath
+                );
+                return book;
             }
             return null;
         });
@@ -394,32 +517,46 @@ public class AdminDashboardController {
 
         dialog.setResultConverter(dialogButton -> {
             if (dialogButton == saveButtonType) {
-                try {
-                    selectedBook.setTitle(titleField.getText());
-                    selectedBook.setAuthor(authorField.getText());
-                    selectedBook.setPrice(Double.parseDouble(priceField.getText()));
-                    selectedBook.setStock(Integer.parseInt(stockField.getText()));
-                    selectedBook.setCategory(categoryComboBox.getValue());
-                    selectedBook.setEdition(editionField.getText());
-                    
-                    // Handle cover image update
-                    if (selectedImagePath[0] != null && !selectedImagePath[0].equals(selectedBook.getCoverImage())) {
-                        // New image was uploaded or kept the same
-                        selectedBook.setCoverImage(selectedImagePath[0]);
-                    } else if (!imageUrlField.getText().trim().isEmpty() && !imageUrlField.getText().equals(selectedBook.getCoverImage())) {
-                        // Download from new URL
-                        try {
-                            String coverImagePath = downloadImageFromUrl(imageUrlField.getText().trim());
-                            selectedBook.setCoverImage(coverImagePath);
-                        } catch (IOException ex) {
-                            showAlert("Download Failed", "Could not download image from URL: " + ex.getMessage(), Alert.AlertType.WARNING);
-                        }
-                    }
-                    
-                    return selectedBook;
-                } catch (NumberFormatException e) {
-                    showAlert("Invalid Input", "Please enter valid numbers for price and stock", Alert.AlertType.ERROR);
+                // Validate required text fields
+                if (titleField.getText().trim().isEmpty() || authorField.getText().trim().isEmpty()) {
+                    showAlert("Invalid Input", "Title and Author are required", Alert.AlertType.ERROR);
+                    return null;
                 }
+                
+                // Validate price
+                if (!ValidationUtils.isValidPrice(priceField.getText())) {
+                    showAlert("Invalid Input", ValidationUtils.getPriceErrorMessage(), Alert.AlertType.ERROR);
+                    return null;
+                }
+                
+                // Validate stock
+                if (!ValidationUtils.isValidStock(stockField.getText())) {
+                    showAlert("Invalid Input", ValidationUtils.getStockErrorMessage(), Alert.AlertType.ERROR);
+                    return null;
+                }
+                
+                selectedBook.setTitle(titleField.getText().trim());
+                selectedBook.setAuthor(authorField.getText().trim());
+                selectedBook.setPrice(Double.parseDouble(priceField.getText().trim()));
+                selectedBook.setStock(Integer.parseInt(stockField.getText().trim()));
+                selectedBook.setCategory(categoryComboBox.getValue());
+                selectedBook.setEdition(editionField.getText().trim());
+                
+                // Handle cover image update
+                if (selectedImagePath[0] != null && !selectedImagePath[0].equals(selectedBook.getCoverImage())) {
+                    // New image was uploaded or kept the same
+                    selectedBook.setCoverImage(selectedImagePath[0]);
+                } else if (!imageUrlField.getText().trim().isEmpty() && !imageUrlField.getText().equals(selectedBook.getCoverImage())) {
+                    // Download from new URL
+                    try {
+                        String coverImagePath = downloadImageFromUrl(imageUrlField.getText().trim());
+                        selectedBook.setCoverImage(coverImagePath);
+                    } catch (IOException ex) {
+                        showAlert("Download Failed", "Could not download image from URL: " + ex.getMessage(), Alert.AlertType.WARNING);
+                    }
+                }
+                
+                return selectedBook;
             }
             return null;
         });
@@ -469,9 +606,38 @@ public class AdminDashboardController {
 
         dialog.showAndWait().ifPresent(newStatus -> {
             if (!newStatus.equals(selectedOrder.getStatus())) {
-                facade.updateOrderStatus(selectedOrder.getId(), newStatus);
-                loadOrders();
-                showAlert("Success", "Order status updated to " + newStatus, Alert.AlertType.INFORMATION);
+                String oldStatus = selectedOrder.getStatus();
+                boolean wasActive = !oldStatus.equals("PENDING") && !oldStatus.equals("CANCELED");
+                boolean isNowActive = !newStatus.equals("PENDING") && !newStatus.equals("CANCELED");
+                
+                if (!wasActive && isNowActive) {
+                    // Activating order (PENDING -> CONFIRMED/SHIPPED/DELIVERED): Deduct stock
+                    boolean success = facade.confirmOrder(selectedOrder);
+                    if (success) {
+                        // If the new status is not CONFIRMED (e.g., SHIPPED, DELIVERED), update it
+                        if (!newStatus.equals("CONFIRMED")) {
+                            facade.updateOrderStatus(selectedOrder.getId(), newStatus);
+                        }
+                        loadOrders();
+                        loadBooks();
+                        loadStatistics();
+                        showAlert("Success", "Order processed! Stock updated.", Alert.AlertType.INFORMATION);
+                    } else {
+                        showAlert("Error", "Could not process order. Check stock availability.", Alert.AlertType.ERROR);
+                    }
+                } else if (wasActive && !isNowActive) {
+                    // Reverting order (CONFIRMED/SHIPPED/DELIVERED -> PENDING/CANCELED): Restore stock
+                    facade.revertOrder(selectedOrder, newStatus);
+                    loadOrders();
+                    loadBooks();
+                    loadStatistics();
+                    showAlert("Success", "Order reverted to " + newStatus + ". Stock restored.", Alert.AlertType.INFORMATION);
+                } else {
+                    // Other transitions (between active statuses, or between inactive statuses)
+                    facade.updateOrderStatus(selectedOrder.getId(), newStatus);
+                    loadOrders();
+                    showAlert("Success", "Order status updated to " + newStatus, Alert.AlertType.INFORMATION);
+                }
             }
         });
     }

@@ -50,8 +50,8 @@ public class BookStoreFacade {
         return currentLoggedInUser;
     }
     
-    public void registerCustomer(String username, String password, String address, String phone) {
-        userService.registerCustomer(username, password, address, phone);
+    public boolean registerCustomer(String username, String password, String address, String phone) {
+        return userService.registerCustomer(username, password, address, phone);
     }
     
     public boolean isAdmin() {
@@ -111,6 +111,13 @@ public class BookStoreFacade {
     public Book getBookById(int id) {
         return bookDAO.getBookByID(id);
     }
+    
+    /**
+     * Search books using regex pattern matching on title and author
+     */
+    public List<Book> searchBooksWithRegex(String pattern) {
+        return bookService.searchBooksWithRegex(pattern);
+    }
 
     // ==================== Cart Management (Customer) ====================
     
@@ -169,6 +176,12 @@ public class BookStoreFacade {
     public void updateOrderStatus(int orderId, String newStatus) {
         if (currentLoggedInUser instanceof Admin) {
             orderService.updateOrderStatus(orderId, newStatus);
+        }
+    }
+    
+    public void revertOrder(Order order, String newStatus) {
+        if (currentLoggedInUser instanceof Admin) {
+            orderService.revertOrder(order, newStatus);
         }
     }
     
@@ -264,10 +277,11 @@ public class BookStoreFacade {
         return null;
     }
     
-    public void confirmOrder(Order order) {
+    public boolean confirmOrder(Order order) {
         if (currentLoggedInUser instanceof Admin) {
-            orderService.confirmOrder(order);
+            return orderService.confirmOrder(order);
         }
+        return false;
     }
 
     // ==================== Inventory & Statistics (Admin) ====================
@@ -326,5 +340,46 @@ public class BookStoreFacade {
             return statisticsService.getOrdersByStatus();
         }
         return null;
+    }
+    
+    public int getTotalBooksSold() {
+        if (currentLoggedInUser instanceof Admin) {
+            return statisticsService.getTotalBooksSold();
+        }
+        return 0;
+    }
+    
+    public int getTotalBooksInInventory() {
+        if (currentLoggedInUser instanceof Admin) {
+            return statisticsService.getTotalBooksInInventory();
+        }
+        return 0;
+    }
+    
+    public Map<String, Integer> getBookCountByCategory() {
+        if (currentLoggedInUser instanceof Admin) {
+            return statisticsService.getBookCountByCategory();
+        }
+        return null;
+    }
+    
+    public int getTotalStock() {
+        if (currentLoggedInUser instanceof Admin) {
+            return statisticsService.getTotalStock();
+        }
+        return 0;
+    }
+    
+    public int getTotalCategories() {
+        if (currentLoggedInUser instanceof Admin) {
+            return statisticsService.getTotalCategories();
+        }
+        return 0;
+    }
+    
+    public void recalculateAllPopularity() {
+        if (currentLoggedInUser instanceof Admin) {
+            statisticsService.recalculateAllPopularity();
+        }
     }
 }

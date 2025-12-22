@@ -37,8 +37,48 @@ public class UserDAO {
         }
         return null;
     }
+    
+    /**
+     * Check if a username already exists in the database
+     */
+    public boolean usernameExists(String username) {
+        String sql = "SELECT COUNT(*) FROM users WHERE LOWER(username) = LOWER(?)";
+        try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, username);
+            ResultSet rs = pstmt.executeQuery();
+            if (rs.next()) {
+                return rs.getInt(1) > 0;
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return false;
+    }
+    
+    /**
+     * Check if a username exists for a different user (for update checks)
+     */
+    public boolean usernameExistsForOther(String username, int userId) {
+        String sql = "SELECT COUNT(*) FROM users WHERE LOWER(username) = LOWER(?) AND id != ?";
+        try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, username);
+            pstmt.setInt(2, userId);
+            ResultSet rs = pstmt.executeQuery();
+            if (rs.next()) {
+                return rs.getInt(1) > 0;
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return false;
+    }
 
-    public void createUser(User user) {
+    public boolean createUser(User user) {
+        // Check if username already exists
+        if (usernameExists(user.getUsername())) {
+            return false; // Username taken
+        }
+        
         String sql = "INSERT INTO users (username, password, address, phone, role) VALUES (?, ?, ?, ?, ?)";
         try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, user.getUsername());
@@ -55,12 +95,19 @@ public class UserDAO {
             
             pstmt.setString(5, user.getRole());
             pstmt.executeUpdate();
+            return true;
         } catch (Exception e) {
             e.printStackTrace();
+            return false;
         }
     }
     
     public boolean updateUser(User user) {
+        // Check if username is taken by another user
+        if (usernameExistsForOther(user.getUsername(), user.getId())) {
+            return false; // Username taken by another user
+        }
+        
         String sql = "UPDATE users SET username = ?, password = ?, address = ?, phone = ?, role = ? WHERE id = ?";
         try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, user.getUsername());
@@ -84,6 +131,4 @@ public class UserDAO {
             return false;
         }
     }
-
-    // Other methods: createUser, updateUser, etc.
 }
