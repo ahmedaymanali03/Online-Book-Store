@@ -18,14 +18,13 @@ import javafx.stage.Stage;
 import javafx.scene.control.Separator;
 import javafx.scene.control.ScrollPane;
 
-import java.util.HashMap;
+
 import java.util.List;
-import java.util.Map;
+
 
 public class CustomerDashboardController {
     
-    // Strategy Pattern: Map of sort strategies
-    private final Map<String, SortStrategy> sortStrategies = new HashMap<>();
+
     
     @FXML
     private Label welcomeLabel;
@@ -69,12 +68,7 @@ public class CustomerDashboardController {
             facade = new BookStoreFacade();
         }
         
-        // Initialize Strategy Pattern: Register all sort strategies
-        sortStrategies.put("Title (A-Z)", new SortByTitleAZ());
-        sortStrategies.put("Title (Z-A)", new SortByTitleZA());
-        sortStrategies.put("Price (Low to High)", new SortByPrice());
-        sortStrategies.put("Price (High to Low)", new SortByPriceHighToLow());
-        sortStrategies.put("Popularity", new SortByPopularity());
+
         
         // Update login/logout button text
         updateLoginLogoutButton();
@@ -299,10 +293,37 @@ public class CustomerDashboardController {
         Separator separator = new Separator();
         content.getChildren().add(separator);
         
+        // Calculate available stock (total stock minus what's already in cart)
+        int alreadyInCart = 0;
+        Cart cart = facade.getCustomerCart();
+        if (cart != null && cart.getItems().containsKey(book.getId())) {
+            alreadyInCart = cart.getItems().get(book.getId());
+        }
+        int availableToAdd = book.getStock() - alreadyInCart;
+        
         // Quantity spinner
         Label qtyLabel = new Label("Quantity:");
-        Spinner<Integer> quantitySpinner = new Spinner<>(1, book.getStock(), 1);
+        Spinner<Integer> quantitySpinner;
+        Label stockInfoLabel = new Label();
+        
+        if (availableToAdd <= 0) {
+            // No stock available to add
+            quantitySpinner = new Spinner<>(0, 0, 0);
+            quantitySpinner.setDisable(true);
+            stockInfoLabel.setText("You already have " + alreadyInCart + " in cart (max stock: " + book.getStock() + ")");
+            stockInfoLabel.setStyle("-fx-text-fill: #e74c3c;");
+        } else {
+            quantitySpinner = new Spinner<>(1, availableToAdd, 1);
+            if (alreadyInCart > 0) {
+                stockInfoLabel.setText("Already in cart: " + alreadyInCart + " | Available to add: " + availableToAdd);
+                stockInfoLabel.setStyle("-fx-text-fill: #7f8c8d;");
+            }
+        }
+        
         content.getChildren().addAll(qtyLabel, quantitySpinner);
+        if (!stockInfoLabel.getText().isEmpty()) {
+            content.getChildren().add(stockInfoLabel);
+        }
         
         ScrollPane mainScrollPane = new ScrollPane(content);
         mainScrollPane.setFitToWidth(true);
@@ -315,6 +336,7 @@ public class CustomerDashboardController {
         ButtonType addToCartButton = new ButtonType("Add to Cart", ButtonBar.ButtonData.OK_DONE);
         dialog.getDialogPane().getButtonTypes().addAll(addToCartButton, ButtonType.CANCEL);
         
+        final int finalAvailableToAdd = availableToAdd;
         dialog.showAndWait().ifPresent(response -> {
             if (response == addToCartButton) {
                 // Check if user is logged in
@@ -323,7 +345,18 @@ public class CustomerDashboardController {
                     return;
                 }
                 
+                // Check stock availability
+                if (finalAvailableToAdd <= 0) {
+                    showAlert("Stock Limit", "You already have the maximum available quantity in your cart.", Alert.AlertType.WARNING);
+                    return;
+                }
+                
                 int quantity = quantitySpinner.getValue();
+                if (quantity > finalAvailableToAdd) {
+                    showAlert("Stock Limit", "Cannot add more than " + finalAvailableToAdd + " items. Stock limit reached.", Alert.AlertType.WARNING);
+                    return;
+                }
+                
                 facade.addBookToCart(book, quantity);
                 updateCartButton();
                 showAlert("Success", "Added to cart!", Alert.AlertType.INFORMATION);
@@ -334,13 +367,30 @@ public class CustomerDashboardController {
     @FXML
     protected void handleSearchAction() {
         String searchText = searchField.getText().trim();
-        if (!searchText.isEmpty()) {
-            // Use regex-enabled search that matches both title and author
-            List<Book> results = facade.searchBooksWithRegex(searchText);
-            loadBooks(results);
+        List<Book> books;
+        
+        // First, apply category filter
+        String selectedCategory = categoryFilter.getValue();
+        if (selectedCategory != null && !selectedCategory.equals("All Categories")) {
+            books = facade.filterBooksByCategory(selectedCategory);
         } else {
-            loadBooks(facade.getAllBooks());
+            books = facade.getAllBooks();
         }
+        
+        // Then, apply search filter within the filtered books
+        if (!searchText.isEmpty()) {
+            String lowerSearchText = searchText.toLowerCase();
+            books = books.stream()
+                .filter(book -> book.getTitle().toLowerCase().contains(lowerSearchText) ||
+                               book.getAuthor().toLowerCase().contains(lowerSearchText))
+                .collect(java.util.stream.Collectors.toList());
+        }
+        
+        // Finally, apply sort using Strategy Pattern via Facade
+        String sortBy = sortFilter.getValue();
+        facade.sortBooks(books, sortBy);
+        
+        loadBooks(books);
     }
 
     @FXML
@@ -355,14 +405,19 @@ public class CustomerDashboardController {
             books = facade.getAllBooks();
         }
         
-        // Then apply sort using Strategy Pattern
-        String sortBy = sortFilter.getValue();
-        if (sortBy != null && !sortBy.equals("None")) {
-            SortStrategy strategy = sortStrategies.get(sortBy);
-            if (strategy != null) {
-                strategy.sort(books);
-            }
+        // Then apply search filter within the filtered books
+        String searchText = searchField.getText().trim();
+        if (!searchText.isEmpty()) {
+            String lowerSearchText = searchText.toLowerCase();
+            books = books.stream()
+                .filter(book -> book.getTitle().toLowerCase().contains(lowerSearchText) ||
+                               book.getAuthor().toLowerCase().contains(lowerSearchText))
+                .collect(java.util.stream.Collectors.toList());
         }
+        
+        // Finally apply sort using Strategy Pattern via Facade
+        String sortBy = sortFilter.getValue();
+        facade.sortBooks(books, sortBy);
         
         loadBooks(books);
     }
@@ -441,6 +496,7 @@ public class CustomerDashboardController {
             // Update UI for guest mode
             welcomeLabel.setText("Welcome, Guest");
             updateLoginLogoutButton();
+            updateCartButton();
             
             // Reload dashboard to show guest view
             loadBooks(facade.getAllBooks());
@@ -468,9 +524,11 @@ public class CustomerDashboardController {
 
     private void updateCartButton() {
         Cart cart = facade.getCustomerCart();
-        if (cart != null) {
+        if (cart != null && !cart.getItems().isEmpty()) {
             int itemCount = cart.getItems().values().stream().mapToInt(Integer::intValue).sum();
             cartButton.setText("View Cart (" + itemCount + ")");
+        } else {
+            cartButton.setText("View Cart");
         }
     }
 

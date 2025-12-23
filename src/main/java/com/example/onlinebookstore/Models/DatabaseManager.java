@@ -96,6 +96,16 @@ public class DatabaseManager {
                 + "FOREIGN KEY (customerId) REFERENCES users(id)"
                 + ");";
         
+        String cartItemTable = "CREATE TABLE IF NOT EXISTS cart_items ("
+                + "id INTEGER PRIMARY KEY AUTOINCREMENT,"
+                + "customerId INTEGER NOT NULL,"
+                + "bookId INTEGER NOT NULL,"
+                + "quantity INTEGER NOT NULL,"
+                + "FOREIGN KEY (customerId) REFERENCES users(id),"
+                + "FOREIGN KEY (bookId) REFERENCES books(id),"
+                + "UNIQUE(customerId, bookId)"
+                + ");";
+        
         try (var stmt = connection.createStatement()) {
             stmt.execute(userTable);
             stmt.execute(categoryTable);
@@ -103,6 +113,7 @@ public class DatabaseManager {
             stmt.execute(orderTable);
             stmt.execute(orderItemTable);
             stmt.execute(reviewTable);
+            stmt.execute(cartItemTable);
         } catch (SQLException e) {
             System.err.println("Error creating tables: " + e.getMessage());
         }

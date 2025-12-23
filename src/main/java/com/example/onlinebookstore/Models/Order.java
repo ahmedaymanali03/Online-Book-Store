@@ -11,8 +11,7 @@ public class Order {
     private String orderDate;
     private String status; // 'PENDING', 'CONFIRMED', etc.
     private double totalPrice;
-    // In a real app, this would be List<OrderItem>
-    private List<Book> books;
+    private List<OrderItem> orderItems;
 
     // Constructor, Getters, Setters...
     public Order(int customerId, String orderDate, String status, double totalPrice) {
@@ -32,6 +31,6 @@ public class Order {
     public void setStatus(String status) { this.status = status; }
     public double getTotalPrice() { return totalPrice; }
     public void setTotalPrice(double totalPrice) { this.totalPrice = totalPrice; }
-    public List<Book> getBooks() { return books; } // Assume books are loaded
-    public void setBooks(List<Book> books) { this.books = books; }
+    public List<OrderItem> getOrderItems() { return orderItems; }
+    public void setOrderItems(List<OrderItem> orderItems) { this.orderItems = orderItems; }
 }

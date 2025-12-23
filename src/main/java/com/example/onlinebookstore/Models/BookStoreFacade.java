@@ -18,6 +18,7 @@ public class BookStoreFacade {
     private CategoryDAO categoryDAO;
     private BookDAO bookDAO;
     private StatisticsService statisticsService;
+    private CartDAO cartDAO;
 
     private User currentLoggedInUser;
 
@@ -30,6 +31,7 @@ public class BookStoreFacade {
         this.categoryDAO = new CategoryDAO();
         this.bookDAO = new BookDAO();
         this.statisticsService = new StatisticsService();
+        this.cartDAO = new CartDAO();
 
         // Wire up the Observer
         this.orderService.addObserver(inventoryService);
@@ -39,6 +41,14 @@ public class BookStoreFacade {
     
     public boolean login(String username, String password) {
         this.currentLoggedInUser = userService.login(username, password);
+        
+        // Load cart from database for customer
+        if (this.currentLoggedInUser instanceof Customer) {
+            Customer customer = (Customer) this.currentLoggedInUser;
+            Cart savedCart = cartDAO.loadCart(customer.getId());
+            customer.setCart(savedCart);
+        }
+        
         return this.currentLoggedInUser != null;
     }
 
@@ -118,24 +128,63 @@ public class BookStoreFacade {
     public List<Book> searchBooksWithRegex(String pattern) {
         return bookService.searchBooksWithRegex(pattern);
     }
+    
+    /**
+     * Sort a list of books using Strategy Pattern based on the sort option
+     * @param books The list of books to sort (will be sorted in-place)
+     * @param sortOption The sorting option: "Title (A-Z)", "Title (Z-A)", 
+     *                   "Price (Low to High)", "Price (High to Low)", "Popularity"
+     */
+    public void sortBooks(List<Book> books, String sortOption) {
+        if (books == null || sortOption == null || sortOption.equals("None")) {
+            return;
+        }
+        
+        SortStrategy strategy = switch (sortOption) {
+            case "Title (A-Z)" -> new SortByTitleAZ();
+            case "Title (Z-A)" -> new SortByTitleZA();
+            case "Price (Low to High)" -> new SortByPrice();
+            case "Price (High to Low)" -> new SortByPriceHighToLow();
+            case "Popularity" -> new SortByPopularity();
+            default -> null;
+        };
+        
+        if (strategy != null) {
+            strategy.sort(books);
+        }
+    }
 
     // ==================== Cart Management (Customer) ====================
     
     public void addBookToCart(Book book, int quantity) {
         if (currentLoggedInUser instanceof Customer) {
-            ((Customer) currentLoggedInUser).getCart().addBook(book, quantity);
+            Customer customer = (Customer) currentLoggedInUser;
+            customer.getCart().addBook(book, quantity);
+            // Persist to database
+            int newQuantity = customer.getCart().getItems().get(book.getId());
+            cartDAO.saveCartItem(customer.getId(), book.getId(), newQuantity);
         }
     }
     
     public void removeBookFromCart(Book book) {
         if (currentLoggedInUser instanceof Customer) {
-            ((Customer) currentLoggedInUser).getCart().removeBook(book);
+            Customer customer = (Customer) currentLoggedInUser;
+            customer.getCart().removeBook(book);
+            // Remove from database
+            cartDAO.removeCartItem(customer.getId(), book.getId());
         }
     }
     
     public void updateCartQuantity(Book book, int quantity) {
         if (currentLoggedInUser instanceof Customer) {
-            ((Customer) currentLoggedInUser).getCart().updateQuantity(book, quantity);
+            Customer customer = (Customer) currentLoggedInUser;
+            customer.getCart().updateQuantity(book, quantity);
+            // Persist to database
+            if (quantity <= 0) {
+                cartDAO.removeCartItem(customer.getId(), book.getId());
+            } else {
+                cartDAO.saveCartItem(customer.getId(), book.getId(), quantity);
+            }
         }
     }
 
@@ -148,7 +197,10 @@ public class BookStoreFacade {
     
     public void clearCart() {
         if (currentLoggedInUser instanceof Customer) {
-            ((Customer) currentLoggedInUser).getCart().clear();
+            Customer customer = (Customer) currentLoggedInUser;
+            customer.getCart().clear();
+            // Clear from database
+            cartDAO.clearCart(customer.getId());
         }
     }
 

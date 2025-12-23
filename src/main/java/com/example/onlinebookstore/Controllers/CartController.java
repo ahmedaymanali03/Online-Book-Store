@@ -107,15 +107,19 @@ public class CartController {
             dialog.setTitle("Edit Quantity");
             dialog.setHeaderText(book.getTitle());
             
-            Label label = new Label("Quantity (1-" + book.getStock() + "):");
-            Spinner<Integer> spinner = new Spinner<>(1, book.getStock(), currentQty);
-            spinner.setEditable(true);
+            final int maxStock = book.getStock();
+            Label label = new Label("Quantity (1-" + maxStock + "):");
+            Spinner<Integer> spinner = new Spinner<>(1, maxStock, currentQty);
+            // Not editable - users can only use arrows which respect bounds
+            spinner.setEditable(false);
             
             javafx.scene.layout.VBox content = new javafx.scene.layout.VBox(10, label, spinner);
             content.setPadding(new javafx.geometry.Insets(10));
             
             dialog.getDialogPane().setContent(content);
             dialog.getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
+            
+            final Book finalBook = book;
             
             dialog.setResultConverter(button -> {
                 if (button == ButtonType.OK) {
@@ -125,7 +129,7 @@ public class CartController {
             });
             
             dialog.showAndWait().ifPresent(newQty -> {
-                facade.updateCartQuantity(book, newQty);
+                facade.updateCartQuantity(finalBook, newQty);
                 loadCart();
                 showAlert("Updated", "Quantity updated successfully", Alert.AlertType.INFORMATION);
             });
