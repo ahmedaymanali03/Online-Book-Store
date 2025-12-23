@@ -7,5 +7,5 @@ package com.example.onlinebookstore.Models;
 public interface OrderSubject {
     void addObserver(OrderObserver observer);
     void removeObserver(OrderObserver observer);
-    void notifyObservers(Order order);
+    void notifyObservers(Order order, List<OrderItem> items);
 }

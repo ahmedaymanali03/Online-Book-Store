@@ -106,7 +106,7 @@ public class OrderService implements OrderSubject {
         
         return true; // Order confirmed successfully
     }
-    
+    @Override
     // Overload for backward compatibility
     public void notifyObservers(Order order, List<OrderItem> items) {
         for (OrderObserver observer : observers) {
@@ -124,12 +124,12 @@ public class OrderService implements OrderSubject {
         observers.remove(observer);
     }
 
-    @Override
-    public void notifyObservers(Order order) {
-        for (OrderObserver observer : observers) {
-            observer.onOrderConfirmed(order);
-        }
-    }
+    // @Override
+    // public void notifyObservers(Order order) {
+    //     for (OrderObserver observer : observers) {
+    //         observer.onOrderConfirmed(order);
+    //     }
+    // }
     
     /**
      * Revert an order from active status (CONFIRMED/SHIPPED/DELIVERED) to PENDING or CANCELED
